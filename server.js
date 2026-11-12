@@ -40,7 +40,11 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
-server.listen(port, '127.0.0.1', () => {
-  console.log(`MovieBox is running at http://127.0.0.1:${port}`);
-  if (!process.env.TMDB_API_KEY) console.log('Add TMDB_API_KEY to .env.local to connect the catalog.');
-});
+if (require.main === module) {
+  server.listen(port, '127.0.0.1', () => {
+    console.log(`MovieBox is running at http://127.0.0.1:${port}`);
+    if (!process.env.TMDB_API_KEY) console.log('Add TMDB_API_KEY to .env.local to connect the catalog.');
+  });
+}
+
+module.exports = server;

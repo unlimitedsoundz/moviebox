@@ -2,9 +2,9 @@
   "name": "moviebox",
   "version": "1.0.0",
   "description": "MovieBox - Stories worth staying in for",
-  "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": [
     "movies",

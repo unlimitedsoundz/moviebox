@@ -12,9 +12,7 @@ if (fs.existsSync(envFile)) {
   } catch {}
 }
 
-const apiKey = process.env.TMDB_API_KEY;
-
-async function tmdb(pathname, params = {}) {
+async function tmdb(apiKey, pathname, params = {}) {
   if (!apiKey) throw new Error('TMDB_API_KEY is missing');
   const query = new URLSearchParams({ api_key: apiKey, language: 'en-US', ...params });
   const response = await fetch(`https://api.themoviedb.org/3${pathname}?${query}`);
@@ -23,22 +21,60 @@ async function tmdb(pathname, params = {}) {
 }
 
 function send(res, status, body, contentType = 'application/json; charset=utf-8') {
+  if (res.headersSent) return;
+  const isJson = contentType.startsWith('application/json');
+  const payload = isJson ? JSON.stringify(body) : body;
+
+  if (typeof res.status === 'function' && typeof res.send === 'function' && !res.writeHead) {
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    return res.status(status).send(payload);
+  }
+
   res.writeHead(status, {
     'Content-Type': contentType,
     'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff',
     'Access-Control-Allow-Origin': '*'
   });
-  res.end(contentType.startsWith('application/json') ? JSON.stringify(body) : body);
+  res.end(payload);
+}
+
+function getRoute(req, url) {
+  const endpoint = url.searchParams.get('__endpoint') || url.searchParams.get('_path');
+  if (endpoint) {
+    return `/api/${endpoint.replace(/^\/+/, '')}`;
+  }
+  const matched = req.headers['x-matched-path'] || req.headers['x-vercel-original-url'];
+  if (matched && matched.startsWith('/api/')) {
+    return matched.split('?')[0];
+  }
+  return url.pathname;
 }
 
 module.exports = async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers['x-forwarded-host'] || req.headers.host || 'localhost'}`);
+  const apiKey = process.env.TMDB_API_KEY || '';
+  const routePath = getRoute(req, url);
+
   try {
-    if (url.pathname === '/api/status') {
+    if (routePath === '/api/status') {
       return send(res, 200, { connected: Boolean(apiKey), provider: 'TMDB' });
     }
-    if (url.pathname === '/api/catalog') {
+
+    if (routePath === '/api/catalog') {
+      if (!apiKey) {
+        return send(res, 200, {
+          results: [],
+          page: 1,
+          totalPages: 1,
+          total: 0,
+          connected: false,
+          message: 'TMDB_API_KEY not configured. Add TMDB_API_KEY in Vercel Environment Variables.'
+        });
+      }
+
       const search = url.searchParams.get('query')?.trim();
       const mediaType = url.searchParams.get('type') === 'tv' ? 'tv' : 'movie';
       const page = Math.max(1, Math.min(500, Number(url.searchParams.get('page')) || 1));
@@ -47,10 +83,12 @@ module.exports = async function handler(req, res) {
       const sort = url.searchParams.get('sort') || 'featured';
       const region = (url.searchParams.get('region') || 'NG').toUpperCase();
       const availability = url.searchParams.get('availability') || 'all';
-      const genres = await tmdb(`/genre/${mediaType}/list`);
+
+      const genres = await tmdb(apiKey, `/genre/${mediaType}/list`);
       const genreNames = Object.fromEntries((genres.genres || []).map(g => [g.id, g.name]));
       let endpoint = `/${mediaType}/popular`;
       const params = { page: String(page) };
+
       if (search) {
         endpoint = `/search/${mediaType}`;
         params.query = search;
@@ -69,12 +107,13 @@ module.exports = async function handler(req, res) {
         else if (sort === 'az') params.sort_by = mediaType === 'tv' ? 'original_name.asc' : 'original_title.asc';
         else params.sort_by = 'popularity.desc';
       }
-      const resultPage = await tmdb(endpoint, params);
+
+      const resultPage = await tmdb(apiKey, endpoint, params);
       let sourceResults = resultPage.results || [];
       if (search && availability !== 'all' && sourceResults.length) {
         sourceResults = await Promise.all(sourceResults.map(async item => {
           try {
-            const providerData = await tmdb(`/${mediaType}/${item.id}/watch/providers`);
+            const providerData = await tmdb(apiKey, `/${mediaType}/${item.id}/watch/providers`);
             const regionData = providerData.results?.[region];
             const allowed = availability.split('|').some(group => regionData?.[group]?.length);
             return allowed ? item : null;
@@ -82,6 +121,7 @@ module.exports = async function handler(req, res) {
         }));
         sourceResults = sourceResults.filter(Boolean);
       }
+
       const results = sourceResults.map(m => ({
         id: `tmdb-${mediaType}-${m.id}`, tmdbId: m.id, mediaType,
         title: m.title || m.name || m.original_title || m.original_name || 'Untitled',
@@ -96,21 +136,35 @@ module.exports = async function handler(req, res) {
         videoUrl: '', source: 'TMDB', voteCount: m.vote_count || 0,
         originalLanguage: m.original_language || ''
       }));
-      return send(res, 200, { results, page: resultPage.page || page, totalPages: resultPage.total_pages || 1, total: resultPage.total_results || results.length });
+
+      return send(res, 200, {
+        results,
+        page: resultPage.page || page,
+        totalPages: resultPage.total_pages || 1,
+        total: resultPage.total_results || results.length
+      });
     }
-    const detailMatch = url.pathname.match(/^\/api\/title\/(movie|tv)\/(\d+)$/);
+
+    const detailMatch = routePath.match(/^\/api\/title\/(movie|tv)\/(\d+)$/);
     if (detailMatch) {
-      const title = await tmdb(`/${detailMatch[1]}/${detailMatch[2]}`, { append_to_response: detailMatch[1] === 'tv' ? 'aggregate_credits,videos' : 'credits,videos' });
+      if (!apiKey) return send(res, 404, { error: 'TMDB_API_KEY missing' });
+      const title = await tmdb(apiKey, `/${detailMatch[1]}/${detailMatch[2]}`, {
+        append_to_response: detailMatch[1] === 'tv' ? 'aggregate_credits,videos' : 'credits,videos'
+      });
       return send(res, 200, title);
     }
-    const providersMatch = url.pathname.match(/^\/api\/providers\/(movie|tv)\/(\d+)$/);
+
+    const providersMatch = routePath.match(/^\/api\/providers\/(movie|tv)\/(\d+)$/);
     if (providersMatch) {
+      if (!apiKey) return send(res, 200, { region: 'US', free: [], ads: [] });
       const region = (url.searchParams.get('region') || 'NG').toUpperCase();
-      const data = await tmdb(`/${providersMatch[1]}/${providersMatch[2]}/watch/providers`);
+      const data = await tmdb(apiKey, `/${providersMatch[1]}/${providersMatch[2]}/watch/providers`);
       return send(res, 200, { region, ...(data.results?.[region] || {}) });
     }
-    send(res, 404, { error: 'Not found' });
+
+    send(res, 404, { error: 'Not found', path: routePath });
   } catch (error) {
+    console.error('API Error:', error);
     send(res, 502, { error: error.message || 'Request failed' });
   }
 };
