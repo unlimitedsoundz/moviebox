@@ -4,7 +4,7 @@ const path = require('node:path');
 const { URL } = require('node:url');
 const apiHandler = require('./api/index.js');
 
-const root = __dirname;
+const root = fs.existsSync(path.join(__dirname, 'public')) ? path.join(__dirname, 'public') : __dirname;
 const port = Number(process.env.PORT || 4173);
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -23,7 +23,7 @@ const server = http.createServer(async (req, res) => {
   }
   const pathname = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);
   const filePath = path.resolve(root, `.${pathname}`);
-  if (!filePath.startsWith(root + path.sep)) {
+  if (!filePath.startsWith(root + path.sep) && filePath !== root) {
     res.writeHead(403, { 'Content-Type': 'application/json' });
     return res.end(JSON.stringify({ error: 'Forbidden' }));
   }

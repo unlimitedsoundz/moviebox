@@ -23,15 +23,22 @@ async function tmdb(apiKey, pathname, params = {}) {
 function send(res, status, body, contentType = 'application/json; charset=utf-8') {
   if (res.headersSent) return;
   const isJson = contentType.startsWith('application/json');
-  const payload = isJson ? JSON.stringify(body) : body;
 
-  if (typeof res.status === 'function' && typeof res.send === 'function' && !res.writeHead) {
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'no-store');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    return res.status(status).send(payload);
+  if (typeof res.status === 'function') {
+    if (isJson && typeof res.json === 'function') {
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(status).json(body);
+    }
+    if (typeof res.send === 'function') {
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'no-store');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      return res.status(status).send(isJson ? JSON.stringify(body) : body);
+    }
   }
 
+  const payload = isJson ? JSON.stringify(body) : body;
   res.writeHead(status, {
     'Content-Type': contentType,
     'Cache-Control': 'no-store',
