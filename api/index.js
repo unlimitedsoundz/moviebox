@@ -140,7 +140,16 @@ module.exports = async function handler(req, res) {
         }
         if (/^\d{4}$/.test(year)) params[mediaType === 'tv' ? 'first_air_date_year' : 'primary_release_year'] = year;
         if (sort === 'rating') { params.sort_by = 'vote_average.desc'; params['vote_count.gte'] = '100'; }
-        else if (sort === 'newest') params.sort_by = mediaType === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc';
+        else if (sort === 'newest') {
+          params.sort_by = mediaType === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc';
+          const today = new Date().toISOString().slice(0, 10);
+          if (mediaType === 'tv') {
+            params['first_air_date.lte'] = today;
+          } else {
+            params['primary_release_date.lte'] = today;
+          }
+          params['vote_count.gte'] = '5';
+        }
         else if (sort === 'az') params.sort_by = mediaType === 'tv' ? 'original_name.asc' : 'original_title.asc';
         else params.sort_by = 'popularity.desc';
       }
