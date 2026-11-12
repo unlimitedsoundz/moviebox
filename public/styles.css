@@ -786,6 +786,11 @@ body {
    Stream & Video Player Dialog (#player-dialog)
    ========================================================================== */
 
+body.dialog-open {
+  overflow: hidden !important;
+  touch-action: none !important;
+}
+
 dialog {
   border: 1px solid #313641;
   background: #0d1016;
@@ -1432,30 +1437,66 @@ footer small {
   }
 
   .top-actions {
+    position: static !important;
     gap: 6px;
+    display: flex;
+    align-items: center;
   }
 
-  .icon-button,
-  .profile-button {
-    width: 34px;
-    height: 34px;
+  .icon-button {
+    width: 36px;
+    height: 36px;
+    font-size: 22px;
+  }
+
+  .search-box {
+    display: none;
   }
 
   .search-box.open {
-    position: absolute;
-    left: 12px;
-    right: 12px;
-    top: 10px;
+    display: flex !important;
+    position: absolute !important;
+    left: 8px !important;
+    right: 8px !important;
+    top: 9px !important;
+    height: 40px !important;
     max-width: none !important;
     width: auto !important;
-    z-index: 25;
+    z-index: 99 !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
 
   .search-box.open .search-input {
     width: 100% !important;
-    height: 38px;
-    background: #141722;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.85);
+    height: 100% !important;
+    padding: 0 42px 0 16px !important;
+    border-radius: 20px !important;
+    background: #151922 !important;
+    border: 1.5px solid var(--accent) !important;
+    color: #fff !important;
+    font-size: 16px !important;
+    outline: none !important;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.95) !important;
+  }
+
+  .search-box.open .search-close-button {
+    position: absolute !important;
+    right: 7px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.16) !important;
+    color: #fff !important;
+    font-size: 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    border: none !important;
+    padding: 0 !important;
   }
 
   /* Hero Section: Left-Aligned, Spacious & 5-Movie Carousel */
@@ -1729,25 +1770,69 @@ footer small {
     justify-content: center !important;
   }
 
-  /* Info Dialog on Mobile */
+  /* Center-Fixed Dialogs on Mobile (Zero Page Shift / No Half-Screen Zoom) */
+  dialog.info-dialog,
+  dialog.player-dialog,
+  dialog.server-dialog {
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    box-sizing: border-box !important;
+  }
+
   .info-dialog {
-    width: min(94vw, 440px) !important;
-    max-width: 94vw !important;
-    max-height: 86dvh !important;
-    border-radius: 12px !important;
+    width: calc(100vw - 24px) !important;
+    max-width: 420px !important;
+    max-height: 84vh !important;
+    max-height: 84dvh !important;
+    border-radius: 14px !important;
     overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior: contain !important;
+    background: #0d1016 !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    box-shadow: 0 20px 80px rgba(0, 0, 0, 0.95) !important;
   }
 
   .info-cover {
-    height: 170px !important;
+    height: 160px !important;
+    width: 100% !important;
+    border-radius: 12px 12px 0 0 !important;
   }
 
   .info-body {
-    padding: 0 16px 18px !important;
+    padding: 12px 16px 20px !important;
+    margin-top: 0 !important;
+  }
+
+  .info-body .kicker {
+    font-size: 9px !important;
+    letter-spacing: 1.5px !important;
+    margin-bottom: 4px !important;
   }
 
   .info-body h2 {
-    font-size: 22px !important;
+    font-size: 20px !important;
+    line-height: 1.2 !important;
+    margin: 2px 0 6px !important;
+  }
+
+  .info-meta {
+    font-size: 11px !important;
+    color: #afb4c0 !important;
+    margin: 0 0 10px !important;
+    line-height: 1.4 !important;
+  }
+
+  .info-body p#info-description {
+    font-size: 13px !important;
+    line-height: 1.55 !important;
+    color: #c9ccd5 !important;
+    margin: 0 0 16px !important;
+    max-height: 130px !important;
+    overflow-y: auto !important;
   }
 
   .info-buttons {
@@ -1759,6 +1844,10 @@ footer small {
   .info-buttons .button {
     flex: 1 !important;
     min-height: 44px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    justify-content: center !important;
   }
 
   footer {
