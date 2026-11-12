@@ -600,6 +600,49 @@ body {
   gap: 26px 18px;
 }
 
+.empty-list-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 56px 20px 64px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  margin: 10px 0 32px;
+}
+
+.empty-list-state .empty-icon {
+  font-size: 40px;
+  color: var(--accent);
+  margin-bottom: 12px;
+  line-height: 1;
+}
+
+.empty-list-state h3 {
+  font-size: 19px;
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.empty-list-state p {
+  font-size: 13px;
+  color: #9da3af;
+  max-width: 380px;
+  margin: 0 0 20px;
+  line-height: 1.5;
+}
+
+.empty-list-state .button {
+  min-height: 42px;
+  padding: 10px 22px;
+  font-size: 13px;
+  font-weight: 700;
+  border-radius: 8px;
+}
+
 .movie-card {
   cursor: pointer;
   min-width: 0;

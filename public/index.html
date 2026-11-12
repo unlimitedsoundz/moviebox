@@ -13,8 +13,8 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="#home" aria-label="MovieBox home"><span class="brand-mark">M</span><span>MOVIE<span class="brand-light">BOX</span></span></a>
-    <nav class="main-nav" aria-label="Main navigation"><a class="nav-link active" href="#home">Home</a><a class="nav-link" href="#discover">Discover</a><a class="nav-link" href="#discover" data-media-type="movie">Movies</a><a class="nav-link" href="#discover" data-media-type="tv">TV Shows</a><a class="nav-link" href="#continue">My list</a></nav>
+    <a class="brand" href="#home" data-view="home" aria-label="MovieBox home"><span class="brand-mark">M</span><span>MOVIE<span class="brand-light">BOX</span></span></a>
+    <nav class="main-nav" aria-label="Main navigation"><a class="nav-link active" href="#home" data-view="home">Home</a><a class="nav-link" href="#discover" data-view="discover">Discover</a><a class="nav-link" href="#discover" data-media-type="movie" data-view="movies">Movies</a><a class="nav-link" href="#discover" data-media-type="tv" data-view="tv">TV Shows</a><a class="nav-link" href="#my-list" data-view="saved">My list</a></nav>
     <div class="top-actions">
       <div class="search-box" id="search-box">
         <input id="search-input" type="search" placeholder="Search titles, genres…" aria-label="Search titles" class="search-input" autocomplete="off" />
@@ -50,12 +50,27 @@
         <button class="clear-button" id="clear-filters">Clear all</button>
       </div>
     </section>
+    <section class="shelf" id="my-list-section" hidden>
+      <div class="shelf-title">
+        <div>
+          <h2>My list</h2>
+          <span class="shelf-note" id="my-list-count">Your saved movies and shows</span>
+        </div>
+      </div>
+      <div class="movie-grid" id="my-list-grid"></div>
+      <div class="empty-list-state" id="my-list-empty" hidden>
+        <div class="empty-icon">♥</div>
+        <h3>Your list is empty</h3>
+        <p>Save movies and TV shows to build your personal watchlist. Tap the ＋ button on any title.</p>
+        <button type="button" class="button button-primary" id="my-list-browse-btn">Browse titles</button>
+      </div>
+    </section>
     <section class="shelf" id="continue" hidden><div class="shelf-title"><h2>Continue watching</h2><span class="shelf-note">Right where you left off</span></div><div class="movie-row" id="continue-row"></div></section>
-    <section class="shelf"><div class="shelf-title"><h2>Made for your evenings</h2><a href="#discover" class="see-all">See all <span>→</span></a></div><div class="movie-row" id="featured-row"></div></section>
-    <section class="shelf"><div class="shelf-title"><h2>Stories with a little wonder</h2><a href="#discover" class="see-all">See all <span>→</span></a></div><div class="movie-row" id="wonder-row"></div></section>
+    <section class="shelf" id="featured-shelf"><div class="shelf-title"><h2>Made for your evenings</h2><a href="#discover" class="see-all">See all <span>→</span></a></div><div class="movie-row" id="featured-row"></div></section>
+    <section class="shelf" id="wonder-shelf"><div class="shelf-title"><h2>Stories with a little wonder</h2><a href="#discover" class="see-all">See all <span>→</span></a></div><div class="movie-row" id="wonder-row"></div></section>
     <section class="shelf search-results" id="results-section" hidden><div class="shelf-title"><h2 id="results-title">Search results</h2><span class="shelf-note" id="results-count"></span></div><div class="movie-grid" id="results-grid"></div><nav class="pagination" id="pagination" aria-label="Catalog pages" hidden></nav></section>
   </main>
-  <footer><a class="brand footer-brand" href="#home"><span class="brand-mark">M</span><span>MOVIE<span class="brand-light">BOX</span></span></a><p>Stories worth staying in for.</p><div class="footer-links"><a href="#discover">Browse</a><button id="server-settings">Connect a server</button><a href="#home">About</a></div><small>© 2025 MovieBox · Movie data and images from <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB. Internet Archive playback availability and rights vary by item.</small></footer>
+  <footer><a class="brand footer-brand" href="#home" data-view="home"><span class="brand-mark">M</span><span>MOVIE<span class="brand-light">BOX</span></span></a><p>Stories worth staying in for.</p><div class="footer-links"><a href="#discover" data-view="discover">Browse</a><a href="#my-list" data-view="saved">My list</a><button id="server-settings">Connect a server</button><a href="#home" data-view="home">About</a></div><small>© 2025 MovieBox · Movie data and images from <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB. Internet Archive playback availability and rights vary by item.</small></footer>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <dialog id="player-dialog" class="player-dialog"><div class="player-shell"><div class="player-top"><div class="player-top-left"><span class="player-live-dot"></span><span id="player-label">NOW PLAYING</span></div><button class="close-button" data-close="player-dialog" aria-label="Close player">×</button></div><video id="video-player" controls playsinline preload="metadata" crossorigin="anonymous"></video><iframe id="stream-player" title="MovieBox video player" allow="autoplay; fullscreen; picture-in-picture; encrypted-media; accelerometer; gyroscope" allowfullscreen referrerpolicy="origin"></iframe><div class="player-controls"><div class="player-title-wrap"><h2 id="player-title">The Last Horizon</h2><p id="player-subtitle">A MovieBox Original · 2025</p></div><div class="player-selectors-grid"><label id="server-option" class="player-field" hidden><span class="field-label">Server</span><select id="server-select" aria-label="Stream server"><option value="cinesrc" selected>CineSrc (Fast &amp; HD)</option><option value="vidsrc-sh">VidSrc</option><option value="vidsrc-cc">VidSrc CC</option><option value="autoembed">AutoEmbed</option><option value="smashy">SmashyStream</option></select></label><label id="season-option" class="player-field" hidden><span class="field-label">Season</span><select id="season-select" aria-label="TV Season"></select></label><label id="episode-option" class="player-field" hidden><span class="field-label">Episode</span><select id="episode-select" aria-label="TV Episode"></select></label><label id="quality-option" class="player-field"><span class="field-label">Quality</span><select id="quality-select" aria-label="Video quality"><option value="auto">Auto</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label><label id="subtitle-option" class="player-field"><span class="field-label">Subtitles</span><select id="subtitle-select" aria-label="Subtitles"><option value="off">Off</option><option value="en">English</option></select></label></div><div class="player-actions-row"><button type="button" class="player-action-button reload-btn" id="player-reload" title="Safely reload player without ads"><span class="btn-icon">↻</span><span>Reload</span></button><button type="button" class="player-action-button fullscreen-btn" id="player-fullscreen" title="Toggle Fullscreen (F)"><span class="btn-icon">⛶</span><span>Fullscreen</span></button></div></div><p class="demo-note" id="player-note">Playback provided by your connected media library.</p></div></dialog>
   <dialog id="info-dialog" class="info-dialog"><button class="close-button info-close" data-close="info-dialog" aria-label="Close details">×</button><div class="info-cover" id="info-cover"></div><div class="info-body"><p class="kicker" id="info-kicker">MOVIEBOX ORIGINAL</p><h2 id="info-title"></h2><p class="info-meta" id="info-meta"></p><p id="info-description"></p><div class="info-buttons"><button class="button button-primary" id="info-play">▶ &nbsp; Play</button><button class="button button-secondary" id="info-save">＋ &nbsp; My list</button></div><section class="provider-panel" id="provider-panel" hidden><h3>Free to watch</h3><p id="provider-note"></p><div id="provider-links"></div></section></div></dialog>
