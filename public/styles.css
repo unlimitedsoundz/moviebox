@@ -442,20 +442,7 @@ body {
 }
 
 .hero-count {
-  color: #e6e7e9;
-  font-size: 12px;
-  font-weight: 600;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  letter-spacing: 0.5px;
-}
-
-.count-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--accent);
+  display: none !important;
 }
 
 /* ==========================================================================
