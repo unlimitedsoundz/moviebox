@@ -14,9 +14,23 @@ if (fs.existsSync(envFile)) {
 
 async function tmdb(apiKey, pathname, params = {}) {
   if (!apiKey) throw new Error('TMDB_API_KEY is missing');
-  const query = new URLSearchParams({ api_key: apiKey, language: 'en-US', ...params });
-  const response = await fetch(`https://api.themoviedb.org/3${pathname}?${query}`);
-  if (!response.ok) throw new Error(`TMDB request failed (${response.status})`);
+  const cleanKey = apiKey.trim();
+  const headers = { 'Accept': 'application/json' };
+  const queryParams = { language: 'en-US', ...params };
+
+  if (cleanKey.startsWith('eyJ') || cleanKey.length > 50) {
+    headers['Authorization'] = `Bearer ${cleanKey}`;
+  } else {
+    queryParams.api_key = cleanKey;
+  }
+
+  const query = new URLSearchParams(queryParams);
+  const response = await fetch(`https://api.themoviedb.org/3${pathname}?${query}`, { headers });
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    console.error(`TMDB error (${response.status}) on ${pathname}:`, errorText);
+    throw new Error(`TMDB request failed (${response.status})`);
+  }
   return response.json();
 }
 
@@ -49,6 +63,16 @@ function send(res, status, body, contentType = 'application/json; charset=utf-8'
 }
 
 function getRoute(req, url) {
+  // Check if routed by Vercel [...slug] dynamic route
+  if (req.query?.slug && Array.isArray(req.query.slug)) {
+    if (url.pathname.includes('/title')) {
+      return `/api/title/${req.query.slug.join('/')}`;
+    }
+    if (url.pathname.includes('/providers')) {
+      return `/api/providers/${req.query.slug.join('/')}`;
+    }
+  }
+
   const endpoint = url.searchParams.get('__endpoint') || url.searchParams.get('_path');
   if (endpoint) {
     return `/api/${endpoint.replace(/^\/+/, '')}`;
@@ -62,12 +86,18 @@ function getRoute(req, url) {
 
 module.exports = async function handler(req, res) {
   const url = new URL(req.url, `http://${req.headers['x-forwarded-host'] || req.headers.host || 'localhost'}`);
-  const apiKey = process.env.TMDB_API_KEY || '';
+  const rawKey = process.env.TMDB_API_KEY || '';
+  const apiKey = rawKey.replace(/^['"]|['"]$/g, '').trim();
   const routePath = getRoute(req, url);
 
   try {
     if (routePath === '/api/status') {
-      return send(res, 200, { connected: Boolean(apiKey), provider: 'TMDB' });
+      return send(res, 200, {
+        connected: Boolean(apiKey),
+        keyLength: apiKey ? apiKey.length : 0,
+        keyType: apiKey.startsWith('eyJ') ? 'v4 Bearer Token' : 'v3 API Key',
+        provider: 'TMDB'
+      });
     }
 
     if (routePath === '/api/catalog') {
@@ -78,7 +108,7 @@ module.exports = async function handler(req, res) {
           totalPages: 1,
           total: 0,
           connected: false,
-          message: 'TMDB_API_KEY not configured. Add TMDB_API_KEY in Vercel Environment Variables.'
+          error: 'TMDB_API_KEY not found in environment. Please add TMDB_API_KEY in Vercel and Redeploy.'
         });
       }
 
