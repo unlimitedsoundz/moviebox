@@ -21,21 +21,23 @@
         <button type="button" class="search-close-button" id="search-close" aria-label="Close search" title="Close search">×</button>
       </div>
       <button class="icon-button search-toggle" id="search-toggle" aria-label="Search" title="Search">⌕</button>
-      <button class="profile-button" aria-label="Open profile">J</button>
     </div>
   </header>
   <main id="home">
-    <section class="hero" aria-label="Featured title">
-      <div class="hero-art" role="img" aria-label="A lone traveler beneath a vast, glowing twilight sky"></div>
+    <section class="hero" id="hero-section" aria-label="Featured title">
+      <div class="hero-art" role="img" aria-label="Featured film backdrop"></div>
       <div class="hero-shade"></div>
       <div class="hero-content">
-        <div class="eyebrow"><span class="eyebrow-line"></span> <span id="hero-eyebrow">FEATURED FILM</span> <span class="eyebrow-line"></span></div>
-        <h1 id="hero-title">THE LAST<br/>HORIZON</h1>
+        <div class="eyebrow"><span class="eyebrow-line"></span> <span id="hero-eyebrow">FEATURED FILM</span></div>
+        <h1 id="hero-title">THE LAST HORIZON</h1>
         <p class="hero-meta"><span class="match" id="hero-match">Featured title</span><span id="hero-year">2025</span><span class="rating" id="hero-rating">★ 8.7</span><span class="quality-pill">HD</span></p>
         <p class="hero-description" id="hero-description">At the edge of a changing world, one quiet journey becomes the story that brings everyone home.</p>
         <div class="hero-buttons"><button class="button button-primary" id="hero-play"><span class="play-triangle">▶</span> Play now</button><button class="button button-secondary" id="hero-info"><span class="info-icon">i</span> More info</button></div>
       </div>
-      <div class="hero-count"><span class="count-dot"></span> 1 / 5</div>
+      <div class="hero-carousel-nav" id="hero-carousel-nav" aria-label="Featured carousel navigation">
+        <div class="hero-dots" id="hero-dots" role="tablist" aria-label="Featured carousel slides"></div>
+        <div class="hero-count" id="hero-count"><span class="count-dot"></span> <span id="hero-count-text">1 / 5</span></div>
+      </div>
     </section>
     <section class="toolbar" id="discover">
       <div class="section-heading"><button class="filter-button" id="filter-toggle"><span>☷</span> Filters <span class="chevron">⌄</span></button></div>

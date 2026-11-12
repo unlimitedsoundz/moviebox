@@ -217,7 +217,7 @@ body {
 }
 
 /* ==========================================================================
-   Hero Section (Desktop, iPad, Mobile) — Balanced & Cinema Centered
+   Hero Section (Desktop, iPad, Mobile) — Left-Aligned & 5-Movie Auto Carousel
    ========================================================================== */
 
 .hero {
@@ -229,41 +229,38 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .hero-art {
   position: absolute;
   inset: 0;
   background-size: cover;
-  background-position: center 30%;
-  filter: saturate(0.85);
-  transition: background-image 0.4s ease;
+  background-position: center 25%;
+  filter: saturate(0.88);
+  transition: background-image 0.5s ease-in-out;
 }
 
 .hero-shade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(9, 11, 16, 0.2) 0%,
-    rgba(9, 11, 16, 0.5) 45%,
-    rgba(9, 11, 16, 0.94) 85%,
-    #090b10 100%
-  );
+  background:
+    linear-gradient(180deg, rgba(9, 11, 16, 0.15) 0%, rgba(9, 11, 16, 0.45) 45%, rgba(9, 11, 16, 0.95) 85%, #090b10 100%),
+    linear-gradient(90deg, rgba(9, 11, 16, 0.94) 0%, rgba(9, 11, 16, 0.8) 36%, rgba(9, 11, 16, 0.25) 70%, transparent 100%);
   pointer-events: none;
 }
 
 .hero-content {
   position: relative;
   z-index: 3;
-  padding: 0 24px 56px;
-  width: min(840px, 92%);
-  margin: 0 auto;
+  padding: 0 5% 56px;
+  width: min(680px, 92%);
+  max-width: 680px;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  text-align: center;
+  align-items: flex-start;
+  text-align: left;
   box-sizing: border-box;
 }
 
@@ -278,35 +275,36 @@ body {
 .eyebrow {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 10px;
   margin-bottom: 8px;
 }
 
 .eyebrow-line {
-  width: 24px;
+  width: 22px;
   height: 1px;
   background: var(--accent);
-  opacity: 0.8;
+  opacity: 0.85;
 }
 
 .hero h1 {
-  font: 800 clamp(36px, 5.2vw, 66px)/1.05 "Manrope", sans-serif;
-  letter-spacing: -1.8px;
-  margin: 8px auto 14px;
-  text-align: center;
-  max-width: 860px;
-  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.8);
+  font: 800 clamp(36px, 5vw, 64px)/1.06 "Manrope", sans-serif;
+  letter-spacing: -1.6px;
+  margin: 8px 0 14px;
+  text-align: left;
+  max-width: 720px;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.85);
 }
 
 .hero-meta {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 14px;
   color: #d5d6db;
   font-size: 13px;
-  margin: 0 auto 14px;
+  margin: 0 0 14px;
+  flex-wrap: wrap;
 }
 
 .match {
@@ -328,20 +326,25 @@ body {
 
 .hero-description {
   color: #c6c9d2;
-  line-height: 1.65;
+  line-height: 1.6;
   font-size: 15px;
-  max-width: 660px;
-  margin: 0 auto 24px;
-  text-align: center;
+  max-width: 580px;
+  margin: 0 0 22px;
+  text-align: left;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .hero-buttons {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 14px;
-  margin: 0 auto;
+  margin: 0;
+  width: auto;
 }
 
 .button {
@@ -401,21 +404,56 @@ body {
   font-family: serif;
 }
 
-.hero-count {
+.hero-carousel-nav {
   position: absolute;
-  right: 6.1%;
-  bottom: 64px;
+  right: 5%;
+  bottom: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 4;
+}
+
+.hero-dots {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hero-dot {
+  width: 22px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.28);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.hero-dot:hover {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.hero-dot.active {
+  width: 36px;
+  background: var(--accent);
+  box-shadow: 0 0 10px rgba(212, 255, 63, 0.45);
+}
+
+.hero-count {
   color: #e6e7e9;
   font-size: 12px;
+  font-weight: 600;
   display: flex;
-  gap: 9px;
+  gap: 8px;
   align-items: center;
-  z-index: 3;
+  letter-spacing: 0.5px;
 }
 
 .count-dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: var(--accent);
 }
@@ -1274,32 +1312,32 @@ footer small {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    align-items: center;
+    align-items: flex-start;
   }
   .hero-content {
     padding: 0 4% 48px;
-    width: min(720px, 90%);
-    margin: 0 auto;
-    text-align: center;
-    align-items: center;
+    width: min(600px, 85%);
+    margin: 0;
+    text-align: left;
+    align-items: flex-start;
   }
   .hero h1 {
     font-size: clamp(34px, 5vw, 54px);
-    margin: 10px auto 14px;
-    text-align: center;
+    margin: 10px 0 14px;
+    text-align: left;
   }
   .hero-meta {
-    justify-content: center;
-    margin: 0 auto 12px;
+    justify-content: flex-start;
+    margin: 0 0 12px;
   }
   .hero-description {
-    text-align: center;
-    max-width: 620px;
-    margin: 0 auto 22px;
+    text-align: left;
+    max-width: 540px;
+    margin: 0 0 20px;
   }
   .hero-buttons {
-    justify-content: center;
-    margin: 0 auto;
+    justify-content: flex-start;
+    margin: 0;
   }
   .toolbar,
   .shelf {
@@ -1419,7 +1457,7 @@ footer small {
   .search-box.open {
     position: absolute;
     left: 12px;
-    right: 52px;
+    right: 12px;
     top: 10px;
     max-width: none !important;
     width: auto !important;
@@ -1433,7 +1471,7 @@ footer small {
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.85);
   }
 
-  /* Hero Section: Centered, Balanced & Cinema Proportion (Not Squeezed) */
+  /* Hero Section: Left-Aligned, Spacious & 5-Movie Carousel */
   .hero {
     height: 75vh;
     min-height: 520px;
@@ -1441,7 +1479,7 @@ footer small {
     display: flex;
     flex-direction: column;
     justify-content: flex-end;
-    align-items: center;
+    align-items: flex-start;
     position: relative;
     overflow: hidden;
   }
@@ -1458,9 +1496,9 @@ footer small {
     inset: 0;
     background: linear-gradient(
       180deg,
-      rgba(9, 11, 16, 0.15) 0%,
-      rgba(9, 11, 16, 0.5) 45%,
-      rgba(9, 11, 16, 0.94) 80%,
+      rgba(9, 11, 16, 0.1) 0%,
+      rgba(9, 11, 16, 0.45) 40%,
+      rgba(9, 11, 16, 0.95) 80%,
       #090b10 100%
     );
   }
@@ -1468,45 +1506,45 @@ footer small {
   .hero-content {
     position: relative;
     z-index: 3;
-    padding: 0 16px 26px;
+    padding: 0 18px 20px;
     margin-top: auto;
     width: 100%;
-    max-width: 440px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    text-align: center;
-    box-sizing: border-box;
+    align-items: flex-start;
+    text-align: left;
   }
 
   .hero .eyebrow {
-    justify-content: center;
+    justify-content: flex-start;
     margin-bottom: 6px;
   }
 
   .hero h1 {
-    font-size: clamp(26px, 7.2vw, 36px);
-    letter-spacing: -1px;
-    line-height: 1.12;
-    margin: 6px auto 10px;
-    text-align: center;
+    font-size: clamp(26px, 7.5vw, 36px);
+    letter-spacing: -0.8px;
+    line-height: 1.15;
+    margin: 6px 0 10px;
+    text-align: left;
     max-width: 100%;
   }
 
   .hero-meta {
     font-size: 11px;
     gap: 10px;
-    justify-content: center;
-    margin: 0 auto 10px;
+    justify-content: flex-start;
+    margin: 0 0 10px;
     flex-wrap: wrap;
   }
 
   .hero-description {
     font-size: 13px;
     line-height: 1.5;
-    margin: 6px auto 18px;
-    max-width: 95%;
-    text-align: center;
+    margin: 0 0 16px;
+    max-width: 100%;
+    color: #c3c7d2;
+    text-align: left;
     display: -webkit-box;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
@@ -1515,16 +1553,16 @@ footer small {
 
   .hero-buttons {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 10px;
     width: 100%;
     max-width: 360px;
-    margin: 0 auto;
+    margin: 0 0 14px 0;
   }
 
   .hero-buttons .button {
     flex: 1;
-    min-height: 46px;
+    min-height: 44px;
     padding: 10px 14px;
     font-size: 14px;
     font-weight: 700;
@@ -1534,8 +1572,27 @@ footer small {
     border-radius: 8px;
   }
 
+  .hero-carousel-nav {
+    position: static !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 360px;
+    margin: 0;
+  }
+
+  .hero-dot {
+    width: 16px;
+    height: 3px;
+  }
+
+  .hero-dot.active {
+    width: 28px;
+  }
+
   .hero-count {
-    display: none !important;
+    font-size: 11px;
   }
 
   /* Shelves & Cards */
