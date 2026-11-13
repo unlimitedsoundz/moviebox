@@ -53,11 +53,13 @@ window.open=function(...args){
   return originalWindowOpen.apply(window,args);
 };
 
+function isPlayerActive(){const stage=$('#player-stage');return Boolean(stage&&!stage.hidden)}
+
 if(window.navigation){
   window.navigation.addEventListener('navigate',e=>{
     try{
       const dest=new URL(e.destination.url);
-      if(dest.origin!==window.location.origin&&$('#player-dialog')?.open&&adBlockerActive){
+      if(dest.origin!==window.location.origin&&isPlayerActive()&&adBlockerActive){
         e.preventDefault();
         recordBlockedAd('top redirect attempt');
         notify('🛡️ Ad Blocker: Blocked site redirect');
@@ -66,22 +68,13 @@ if(window.navigation){
   });
 }
 
-window.addEventListener('beforeunload',e=>{
-  if(adBlockerActive&&$('#player-dialog')?.open&&activeMovie?.source==='TMDB'){
-    e.preventDefault();
-    e.returnValue='MovieBox is currently playing.';
-    recordBlockedAd('page redirect attempt');
-    return 'MovieBox is currently playing.';
-  }
-});
-
 window.addEventListener('click',e=>{
   if(!adBlockerActive)return;
   const link=e.target.closest('a');
   if(link&&link.href){
     try{
       const targetUrl=new URL(link.href,window.location.href);
-      if($('#player-dialog')?.open&&targetUrl.origin!==window.location.origin&&!targetUrl.hostname.includes('themoviedb.org')){
+      if(isPlayerActive()&&targetUrl.origin!==window.location.origin&&!targetUrl.hostname.includes('themoviedb.org')){
         e.preventDefault();
         e.stopPropagation();
         recordBlockedAd('external link redirect');
@@ -89,15 +82,6 @@ window.addEventListener('click',e=>{
     }catch{}
   }
 },true);
-
-window.addEventListener('blur',()=>{
-  if(adBlockerActive&&$('#player-dialog')?.open&&activeMovie?.source==='TMDB'){
-    setTimeout(()=>{
-      window.focus();
-      recordBlockedAd('background popup');
-    },100);
-  }
-});
 
 function applyAdBlockerSandbox(){
   const frame=$('#stream-player');
@@ -139,7 +123,7 @@ function setAdBlocker(enabled){
   applyAdBlockerSandbox();
   updateAdBlockUI();
   notify(adBlockerActive?'🛡️ Inbuilt Ad Blocker enabled · Redirects blocked':'⚠️ Ad Blocker paused · Embed unrestricted');
-  if(activeMovie&&activeMovie.source==='TMDB'&&$('#player-dialog')?.open){
+  if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){
     playMovie(activeMovie);
   }
 }
@@ -162,14 +146,16 @@ function stopPlayer(){
   if(frame){
     try{
       frame.src='about:blank';
-      frame.removeAttribute('src');
     }catch{}
   }
-  const dialog=$('#player-dialog');
-  if(dialog?.open){
-    try{dialog.close()}catch{}
+  const stage=$('#player-stage');
+  if(stage)stage.hidden=true;
+  if(document.fullscreenElement||document.webkitFullscreenElement){
+    try{
+      if(document.exitFullscreen)document.exitFullscreen().catch(()=>{});
+      else if(document.webkitExitFullscreen)document.webkitExitFullscreen();
+    }catch{}
   }
-  document.body.classList.remove('dialog-open');
 }
 
 function getStreamUrl(server,type,tmdbId,startAt=0,season=1,episode=1){
@@ -190,20 +176,234 @@ function getUniqueMovies(items){const seen=new Set();return(items||[]).filter(m=
 let currentView='home',isListView=false;
 function scrollToList(){const target=$('#results-section');if(!target)return;const top=target.getBoundingClientRect().top+window.pageYOffset-68;window.scrollTo({top:Math.max(0,top),behavior:'smooth'})}
 function renderMyList(){const listGrid=$('#my-list-grid'),emptyState=$('#my-list-empty'),countEl=$('#my-list-count');if(!listGrid)return;const items=[...saved].map(id=>savedItems[id]||catalog.find(m=>m.id===id)||movies.find(m=>m.id===id)).filter(Boolean);const uniqueSaved=getUniqueMovies(items);if(countEl)countEl.textContent=uniqueSaved.length?`${uniqueSaved.length} ${uniqueSaved.length===1?'title':'titles'} in your watchlist`:'Your saved movies and shows';if(!uniqueSaved.length){listGrid.innerHTML='';listGrid.hidden=true;if(emptyState)emptyState.hidden=false}else{if(emptyState)emptyState.hidden=true;listGrid.hidden=false;listGrid.innerHTML=uniqueSaved.map(card).join('');bindCards()}}
-function switchView(viewName){currentView=viewName;$$('.main-nav .nav-link').forEach(link=>{const isThis=link.dataset.view===viewName||(viewName==='home'&&(link.dataset.view==='home'||link.getAttribute('href')==='#home'));link.classList.toggle('active',isThis)});const hero=$('#hero-section'),discover=$('#discover'),featured=$('#featured-shelf'),wonder=$('#wonder-shelf'),results=$('#results-section'),myList=$('#my-list-section'),continueShelf=$('#continue');if(viewName==='saved'){if(hero)hero.hidden=true;if(discover)discover.hidden=true;if(featured)featured.hidden=true;if(wonder)wonder.hidden=true;if(results)results.hidden=true;if(continueShelf)continueShelf.hidden=true;if(myList)myList.hidden=false;renderMyList();window.scrollTo({top:0,behavior:'smooth'})}else{if(myList)myList.hidden=true;if(hero)hero.hidden=false;if(discover)discover.hidden=false;if(viewName==='home'){isListView=false;if(currentPage!==1){loadTMDBCatalog('',1).catch(()=>{})}else{render()}window.scrollTo({top:0,behavior:'smooth'})}else if(viewName==='discover'){isListView=true;render();scrollToList()}else{if(featured)featured.hidden=false;if(wonder)wonder.hidden=false;render()}}}
+function switchView(viewName){
+  if(viewName!=='detail')stopPlayer();
+  currentView=viewName;
+  $$('.main-nav .nav-link').forEach(link=>{
+    const isThis=link.dataset.view===viewName||(viewName==='home'&&(link.dataset.view==='home'||link.getAttribute('href')==='#home'));
+    link.classList.toggle('active',isThis);
+  });
+  const hero=$('#hero-section'),discover=$('#discover'),featured=$('#featured-shelf'),wonder=$('#wonder-shelf'),results=$('#results-section'),myList=$('#my-list-section'),continueShelf=$('#continue'),detailPage=$('#detail-page');
+  if(viewName==='detail'){
+    if(hero)hero.hidden=true;
+    if(discover)discover.hidden=true;
+    if(featured)featured.hidden=true;
+    if(wonder)wonder.hidden=true;
+    if(results)results.hidden=true;
+    if(continueShelf)continueShelf.hidden=true;
+    if(myList)myList.hidden=true;
+    if(detailPage)detailPage.hidden=false;
+    window.scrollTo({top:0,behavior:'auto'});
+    return;
+  }
+  if(detailPage)detailPage.hidden=true;
+  if(viewName==='saved'){
+    if(hero)hero.hidden=true;
+    if(discover)discover.hidden=true;
+    if(featured)featured.hidden=true;
+    if(wonder)wonder.hidden=true;
+    if(results)results.hidden=true;
+    if(continueShelf)continueShelf.hidden=true;
+    if(myList)myList.hidden=false;
+    renderMyList();
+    window.scrollTo({top:0,behavior:'smooth'});
+  }else{
+    if(myList)myList.hidden=true;
+    if(hero)hero.hidden=false;
+    if(discover)discover.hidden=false;
+    if(viewName==='home'){
+      isListView=false;
+      if(currentPage!==1){loadTMDBCatalog('',1).catch(()=>{})}else{render()}
+      window.scrollTo({top:0,behavior:'smooth'});
+    }else if(viewName==='discover'){
+      isListView=true;
+      render();
+      scrollToList();
+    }else{
+      if(featured)featured.hidden=false;
+      if(wonder)wonder.hidden=false;
+      render();
+    }
+  }
+}
 function card(movie){const pct=progress[movie.id]?.pct||0;const isTV=movie.mediaType==='tv';const tagHtml=movie.tag?`<span class="poster-tag">ORIGINAL</span>`:(isTV?`<span class="poster-tag tv-tag">SERIES</span>`:'');return `<article class="movie-card" data-id="${movie.id}"><div class="poster"><div class="poster-art" style="background-image:url('${movie.poster}')"></div>${tagHtml}<div class="card-actions"><button class="save-card ${saved.has(movie.id)?'saved':''}" aria-label="${saved.has(movie.id)?'Remove from':'Add to'} My list" title="My list">${saved.has(movie.id)?SVG_HEART:SVG_PLUS}</button></div>${pct?`<div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>`:''}</div><div class="card-info"><p class="card-title">${movie.title}</p><div class="card-meta"><span>${movie.year||'Classic'}</span><span>·</span><span>${movie.genre}</span>${movie.rating?`<span class="card-rating">★ ${movie.rating.toFixed(1)}</span>`:''}</div></div></article>`}
 function render(){if(currentView==='saved'){renderMyList();return}const filtered=getUniqueMovies(filteredMovies()),kind=$('#media-type').value==='tv'?'TV shows':'films';const watching=catalog.filter(m=>progress[m.id]?.pct>0&&progress[m.id]?.pct<95);$('#continue').hidden=!watching.length||isListView;$('#continue-row').innerHTML=watching.map(card).join('');const search=$('#search-input')?.value.trim(),hasFilter=$('#genre-filter').value!=='all'||$('#year-filter').value!=='all';const showAsList=isListView||Boolean(search)||hasFilter||currentPage>1;if(showAsList){const found=search?catalog.filter(m=>`${m.title} ${m.genre} ${m.year} ${m.description}`.toLowerCase().includes(search.toLowerCase())):filtered;const uniqueFound=getUniqueMovies(found);$('#featured-shelf').hidden=true;$('#wonder-shelf').hidden=true;$('#results-section').hidden=false;$('#results-title').textContent=search?`Results for “${search}”`:hasFilter?`Filtered ${kind}${totalPages>1?` · Page ${currentPage}`:''}`:`All ${kind}${totalPages>1?` · Page ${currentPage}`:''}`;$('#results-count').textContent=totalPages>1?`${totalResults.toLocaleString()} titles · Page ${currentPage} of ${totalPages}`:`${uniqueFound.length} ${uniqueFound.length===1?'title':'titles'}`;$('#results-grid').innerHTML=uniqueFound.map(card).join('')}else{$('#featured-shelf').hidden=false;const shelf1=filtered.length>5?filtered.slice(5,10):filtered.slice(0,5);const shelf2=filtered.length>10?filtered.slice(10,15):(filtered.length>5?filtered.slice(5):[]);const rest=filtered.length>15?filtered.slice(15):[];$('#featured-row').innerHTML=shelf1.map(card).join('');if(shelf2.length){$('#wonder-shelf').hidden=false;$('#wonder-row').innerHTML=shelf2.map(card).join('')}else{$('#wonder-shelf').hidden=true}if(rest.length||totalPages>1){$('#results-section').hidden=false;$('#results-title').textContent=`More ${kind}`;$('#results-count').textContent=totalPages>1?`${totalResults.toLocaleString()} titles · Page ${currentPage} of ${totalPages}`:`${filtered.length} titles in library`;$('#results-grid').innerHTML=rest.map(card).join('')}else{$('#results-section').hidden=true}}renderPagination();bindCards()}
 function renderPagination(){const nav=$('#pagination');if(!nav)return;nav.hidden=totalPages<=1;const start=Math.max(1,Math.min(currentPage-2,totalPages-4)),end=Math.min(totalPages,start+4);let html=`<button class="page-button" data-page="${currentPage-1}" ${currentPage===1?'disabled':''} aria-label="Previous page">${SVG_PREV}</button>`;for(let p=start;p<=end;p++)html+=`<button class="page-button ${p===currentPage?'current':''}" data-page="${p}" ${p===currentPage?'aria-current="page"':''}>${p}</button>`;html+=`<button class="page-button" data-page="${currentPage+1}" ${currentPage===totalPages?'disabled':''} aria-label="Next page">${SVG_NEXT}</button>`;nav.innerHTML=html;nav.querySelectorAll('[data-page]').forEach(b=>b.onclick=async()=>{const page=Number(b.dataset.page);if(page>=1&&page<=totalPages&&page!==currentPage){isListView=true;const q=searchInput?.value.trim()||'';await loadTMDBCatalog(q,page);scrollToList()}})}
 function filteredMovies(){let list=[...catalog];const genre=$('#genre-filter').value,year=$('#year-filter').value,sort=$('#sort-filter').value;if(genre!=='all')list=list.filter(m=>(m.genres||m.genre.split(',').map(x=>x.trim())).some(g=>g.toLowerCase()===genre.toLowerCase()));if(year!=='all')list=list.filter(m=>String(m.year)===year);if(sort==='rating')list.sort((a,b)=>b.rating-a.rating);if(sort==='newest'){const maxYear=2026;list.sort((a,b)=>{const aOk=a.year>0&&a.year<=maxYear,bOk=b.year>0&&b.year<=maxYear;if(aOk!==bOk)return aOk?-1:1;return b.year-a.year})}if(sort==='az')list.sort((a,b)=>a.title.localeCompare(b.title));return list}
 function refreshFilterOptions(){const g=$('#genre-filter'),y=$('#year-filter'),oldG=g.value,oldY=y.value;const genres=[...new Set(catalog.flatMap(m=>m.genres||m.genre.split(',').map(x=>x.trim())).filter(Boolean))];g.innerHTML='<option value="all">All genres</option>'+genres.sort().map(v=>`<option value="${v}">${v}</option>`).join('');y.innerHTML='<option value="all">Any year</option>'+[...new Set(catalog.map(m=>m.year).filter(Boolean))].sort((a,b)=>b-a).map(v=>`<option value="${v}">${v}</option>`).join('');g.value=[...g.options].some(o=>o.value===oldG)?oldG:'all';y.value=[...y.options].some(o=>o.value===oldY)?oldY:'all';}
-function bindCards(){$$('.movie-card').forEach(el=>{el.onclick=()=>{const id=el.dataset.id;const movie=catalog.find(m=>m.id===id)||savedItems[id]||movies.find(m=>m.id===id);if(movie)openInfo(movie)};const saveBtn=el.querySelector('.save-card');if(saveBtn){saveBtn.onclick=e=>{e.stopPropagation();const id=el.dataset.id;const movie=catalog.find(m=>m.id===id)||savedItems[id]||movies.find(m=>m.id===id);if(saved.has(id)){saved.delete(id);delete savedItems[id];notify('Removed from My list')}else{saved.add(id);if(movie)savedItems[id]=movie;notify('Added to My list')}persist();if(currentView==='saved')renderMyList();else render()}}})}
-function openInfo(movie){if(!movie)return;activeMovie=movie;const isTV=movie.mediaType==='tv'||String(movie.id).includes('tmdb-tv-')||(movie.seasons&&movie.seasons.length>0)||(movie.numberOfSeasons&&movie.numberOfSeasons>0);if(isTV)movie.mediaType='tv';$('#info-title').textContent=movie.title;$('#info-meta').textContent=[movie.year||'Classic',(movie.genres||[movie.genre]).join(', '),movie.rating?`★ ${movie.rating.toFixed(1)}`:'',movie.duration,movie.source].filter(Boolean).join(' · ');$('#info-description').textContent=movie.source==='Internet Archive'?`${movie.description} Source: Internet Archive. Rights and playback availability vary by item; check the source record before use.`:movie.source==='TMDB'?`${movie.description} Details and regional viewing options from TMDB.`:movie.description;$('#info-cover').style.backgroundImage=`url('${movie.backdrop||movie.poster}')`;$('#info-kicker').textContent=isTV?'TV SERIES':movie.tag||movie.source||'FEATURED TITLE';const canPlay=Boolean(movie.videoUrl||(movie.source==='TMDB'&&movie.tmdbId));const play=$('#info-play');play.disabled=!canPlay;play.innerHTML=canPlay?`<span class="play-triangle">${SVG_PLAY}</span> Play`:'No stream linked';play.onclick=()=>{if(!canPlay)return;$('#info-dialog').close();playMovie(movie)};$('#info-save').innerHTML=saved.has(movie.id)?`${SVG_HEART} In my list`:`${SVG_PLUS} My list`;$('#info-save').onclick=()=>{if(saved.has(movie.id)){saved.delete(movie.id);delete savedItems[movie.id];notify('Removed from My list')}else{saved.add(movie.id);savedItems[movie.id]=movie;notify('Added to My list')}persist();$('#info-save').innerHTML=saved.has(movie.id)?`${SVG_HEART} In my list`:`${SVG_PLUS} My list`;if(currentView==='saved')renderMyList();else render()};const panel=$('#provider-panel');panel.hidden=movie.source!=='TMDB';$('#provider-note').textContent='Checking free availability…';$('#provider-links').innerHTML='';showDialog($('#info-dialog'));if(movie.source==='TMDB'){const region=$('#region-filter')?.value||'US',reqType=isTV?'tv':'movie';const fetchTitleInfo=async()=>{try{let r=await fetch(`/api/title/${reqType}/${movie.tmdbId}`);if(!r.ok)r=await fetch(`/api/title?type=${reqType}&id=${movie.tmdbId}`);if(!r.ok)return;const d=await r.json();if(!d||activeMovie?.id!==movie.id)return;if(isTV){movie.numberOfSeasons=d.number_of_seasons||(d.seasons?.filter(s=>s.season_number>0).length)||1;movie.numberOfEpisodes=d.number_of_episodes||24;movie.seasons=d.seasons||[]}movie.duration=isTV?`${d.number_of_seasons||1} seasons · ${d.number_of_episodes||0} episodes`:d.runtime?`${Math.floor(d.runtime/60)}h ${d.runtime%60}m`:'';movie.genres=(d.genres||[]).map(g=>g.name);movie.genre=movie.genres.join(', ')||movie.genre;const cast=(d.credits?.cast||d.aggregate_credits?.cast||[]).slice(0,5).map(p=>p.name).join(', ');$('#info-meta').textContent=[movie.year,movie.genres.join(', '),movie.rating?`★ ${movie.rating.toFixed(1)}`:'',movie.duration].filter(Boolean).join(' · ');$('#info-description').textContent=`${d.overview||movie.description}${d.tagline?` “${d.tagline}”`:''}${cast?` Cast: ${cast}.`:''} TMDB metadata; viewing options vary by region.`}catch{}};fetchTitleInfo();const fetchProv=async()=>{try{let r=await fetch(`/api/providers/${reqType}/${movie.tmdbId}?region=${region}`);if(!r.ok)r=await fetch(`/api/providers?type=${reqType}&id=${movie.tmdbId}&region=${region}`);if(!r.ok)return;const data=await r.json();if(activeMovie?.id!==movie.id)return;const free=data?.free||[],ads=data?.ads||[],items=free.length?free:ads;$('#provider-note').textContent=items.length?`${free.length?'Free':'Free with ads'} options in ${$('#region-filter')?.selectedOptions[0]?.textContent||'US'}: ${items.map(p=>p.provider_name).join(', ')}.`:`No free provider is listed in ${$('#region-filter')?.selectedOptions[0]?.textContent||'US'}.`;$('#provider-links').innerHTML=data?.link?`<a class="provider-link" href="${data.link}" target="_blank" rel="noopener noreferrer">See viewing options on TMDB ↗</a>`:''}catch{$('#provider-note').textContent='Provider availability is temporarily unavailable.'}};fetchProv()}}
-function playMovie(movie){const prevId=activeMovie?.id;activeMovie=movie;if(prevId!==movie.id){currentSeason=1;currentEpisode=1}const video=$('#video-player'),frame=$('#stream-player'),embedded=movie.source==='TMDB'&&movie.tmdbId,isTV=embedded&&(movie.mediaType==='tv'||String(movie.id).includes('tmdb-tv-')||(movie.seasons&&movie.seasons.length>0)||(movie.numberOfSeasons&&movie.numberOfSeasons>0));if(isTV)movie.mediaType='tv';video.pause();video.removeAttribute('src');video.querySelectorAll('track').forEach(t=>t.remove());frame.removeAttribute('src');video.hidden=Boolean(embedded);frame.hidden=!embedded;$('#quality-option').hidden=Boolean(embedded);$('#subtitle-option').hidden=Boolean(embedded);$('#server-option').hidden=!embedded;if($('#season-option'))$('#season-option').hidden=!isTV;if($('#episode-option'))$('#episode-option').hidden=!isTV;$('#player-reload').hidden=!embedded;$('#player-note').textContent=embedded?(adBlockerActive?'Playback protected by MovieBox Inbuilt Ad & Redirect Shield.':'Streaming without ad blocker. Redirect protection is paused.'):'Playback provided in crisp 1080p Full HD.';$('#player-title').textContent=movie.title;$('#player-subtitle').textContent=`${movie.tag?'A MovieBox Original · ':''}${movie.year||''}${movie.duration?` · ${movie.duration}`:''}`;if(embedded){applyAdBlockerSandbox();const type=isTV?'tv':'movie',savedProgress=progress[movie.id],startAt=savedProgress?.time||0;if($('#server-select'))$('#server-select').value=currentStreamServer;const sSel=$('#season-select'),eSel=$('#episode-select');const updateTvPickers=()=>{if(!isTV||!sSel||!eSel)return;let seasonList=(movie.seasons||[]).filter(s=>s&&s.season_number>0);if(!seasonList.length&&movie.seasons?.length){seasonList=movie.seasons.filter(s=>s&&s.season_number!==0)}const totalS=Math.max(1,movie.numberOfSeasons||1,seasonList.length);for(let s=1;s<=totalS;s++){if(!seasonList.some(item=>Number(item.season_number)===s)){seasonList.push({season_number:s,name:`Season ${s}`,episode_count:24})}}seasonList.sort((a,b)=>Number(a.season_number)-Number(b.season_number));let sHtml='';seasonList.forEach(s=>{const sNum=Number(s.season_number);sHtml+=`<option value="${sNum}" ${sNum===currentSeason?'selected':''}>${s.name||`Season ${sNum}`}</option>`});sSel.innerHTML=sHtml;sSel.value=String(currentSeason);const sData=seasonList.find(s=>Number(s.season_number)===currentSeason);const epMax=Math.max(1,sData?.episode_count||(movie.numberOfEpisodes&&movie.numberOfEpisodes<=24?movie.numberOfEpisodes:24));let eHtml='';for(let e=1;e<=epMax;e++){eHtml+=`<option value="${e}" ${e===currentEpisode?'selected':''}>Episode ${e}</option>`}eSel.innerHTML=eHtml;if(currentEpisode>epMax)currentEpisode=1;eSel.value=String(currentEpisode)};if(isTV){updateTvPickers();sSel.onchange=()=>{currentSeason=Number(sSel.value)||1;currentEpisode=1;updateTvPickers();frame.src=getStreamUrl(currentStreamServer,'tv',movie.tmdbId,0,currentSeason,currentEpisode);notify(`Loaded Season ${currentSeason}, Episode 1`)};eSel.onchange=()=>{currentEpisode=Number(eSel.value)||1;frame.src=getStreamUrl(currentStreamServer,'tv',movie.tmdbId,0,currentSeason,currentEpisode);notify(`Loaded Season ${currentSeason}, Episode ${currentEpisode}`)};const loadTvDetails=async()=>{try{let r=await fetch(`/api/title/tv/${movie.tmdbId}`);if(!r.ok)r=await fetch(`/api/title?type=tv&id=${movie.tmdbId}`);if(!r.ok)return;const d=await r.json();if(!d||activeMovie?.id!==movie.id)return;movie.numberOfSeasons=d.number_of_seasons||(d.seasons?.filter(s=>s.season_number>0).length)||1;movie.numberOfEpisodes=d.number_of_episodes||24;movie.seasons=d.seasons||[];updateTvPickers()}catch{}};loadTvDetails()}frame.src=getStreamUrl(currentStreamServer,type,movie.tmdbId,startAt,currentSeason,currentEpisode);const serverName=$('#server-select')?.selectedOptions[0]?.textContent||(currentStreamServer==='vidlink'?'VidLink':'CineSrc');$('#player-label').textContent=adBlockerActive?`${serverName.toUpperCase()} · SHIELD ACTIVE`:`${serverName.toUpperCase()} PLAYER`;$('#quality-select').innerHTML='<option value="auto">Player controls</option>';$('#subtitle-select').innerHTML='<option value="off">Player controls</option>';updateAdBlockUI()}else{const qMap=movie.qualityUrls||DEMO_QUALITIES;const initialQuality=qMap['1080']?'1080':(Object.keys(qMap)[0]||'auto');video.src=qMap[initialQuality]||movie.videoUrl||DEMO_1080P;if(movie.subtitlesUrl){const track=document.createElement('track');track.kind='subtitles';track.label=movie.subtitleLabel||'English';track.srclang=movie.subtitleLanguage||'en';track.src=movie.subtitlesUrl;video.append(track)}$('#player-label').textContent=movie.videoUrl?'NOW PLAYING · FULL HD':'DEMO PLAYER · 1080P FULL HD';let qOptions='<option value="auto">Auto (1080p)</option>';if(qMap['1080'])qOptions+=`<option value="1080" ${initialQuality==='1080'?'selected':''}>1080p Full HD</option>`;if(qMap['720'])qOptions+=`<option value="720" ${initialQuality==='720'?'selected':''}>720p HD</option>`;if(qMap['480'])qOptions+=`<option value="480" ${initialQuality==='480'?'selected':''}>480p SD</option>`;for(const k of Object.keys(qMap)){if(!['1080','720','480'].includes(k))qOptions+=`<option value="${k}">${k}p</option>`}$('#quality-select').innerHTML=qOptions;$('#quality-select').value=initialQuality;$('#quality-select').onchange=()=>{const next=$('#quality-select').value,targetUrl=next==='auto'?(qMap['1080']||movie.videoUrl||DEMO_1080P):(qMap[next]||movie.videoUrl||DEMO_1080P),at=video.currentTime,wasPlaying=!video.paused;video.src=targetUrl;video.onloadedmetadata=()=>{video.currentTime=at;if(wasPlaying)video.play().catch(()=>{})};notify(`Quality set to ${next==='auto'?'Auto (1080p Full HD)':next+'p'+(next==='1080'?' Full HD':'')}`)};$('#subtitle-select').innerHTML=`<option value="off">Off</option>${movie.subtitlesUrl?`<option value="en">${movie.subtitleLabel||'English'}</option>`:''}`;$('#subtitle-select').value='off';$('#subtitle-select').onchange=e=>{video.querySelectorAll('track').forEach(t=>t.track.mode=e.target.value==='off'?'disabled':'showing')};video.onloadedmetadata=()=>{const savedProgress=progress[movie.id];if(savedProgress?.time&&savedProgress.time<video.duration-5)video.currentTime=savedProgress.time};video.ontimeupdate=()=>{if(video.duration){progress[movie.id]={time:video.currentTime,pct:Math.min(100,Math.round(video.currentTime/video.duration*100))};persist();if(Math.round(video.currentTime)%15===0)render()}}}showDialog($('#player-dialog'));if(!embedded)video.play().catch(()=>{})}
-window.addEventListener('message',event=>{if(!activeMovie||event.source!==$('#stream-player')?.contentWindow)return;const payload=event.data;if(payload?.type!=='PLAYER_EVENT')return;const data=payload.data||{},seconds=Number(data.player_progress),duration=Number(data.player_duration);if(Number.isFinite(seconds)){progress[activeMovie.id]={time:seconds,pct:duration>0?Math.min(100,Math.round(seconds/duration*100)):(progress[activeMovie.id]?.pct||0)};persist();if(data.player_status==='completed')progress[activeMovie.id].pct=100}});
-let iframeWasBackgrounded=false;document.addEventListener('visibilitychange',()=>{if(document.hidden){iframeWasBackgrounded=true;return}if(!iframeWasBackgrounded)return;iframeWasBackgrounded=false;if(!adBlockerActive&&!document.hidden&&activeMovie?.source==='TMDB'&&$('#player-dialog').open){setTimeout(()=>{playMovie(activeMovie)},350)}});
+function bindCards(){$$('.movie-card').forEach(el=>{el.onclick=()=>{const id=el.dataset.id;const movie=catalog.find(m=>m.id===id)||savedItems[id]||movies.find(m=>m.id===id);if(movie)openDetailPage(movie)};const saveBtn=el.querySelector('.save-card');if(saveBtn){saveBtn.onclick=e=>{e.stopPropagation();const id=el.dataset.id;const movie=catalog.find(m=>m.id===id)||savedItems[id]||movies.find(m=>m.id===id);if(saved.has(id)){saved.delete(id);delete savedItems[id];notify('Removed from My list')}else{saved.add(id);if(movie)savedItems[id]=movie;notify('Added to My list')}persist();if(currentView==='saved')renderMyList();else render()}}})}
+function openDetailPage(movie,{autoplay=false,skipPush=false}={}){
+  if(!movie)return;
+  stopPlayer();
+  activeMovie=movie;
+  const isTV=movie.mediaType==='tv'||String(movie.id).includes('tmdb-tv-')||(movie.seasons&&movie.seasons.length>0)||(movie.numberOfSeasons&&movie.numberOfSeasons>0);
+  if(isTV)movie.mediaType='tv';
+  const targetHash=`#title/${encodeURIComponent(movie.id)}`;
+  if(!skipPush&&window.location.hash!==targetHash){
+    history.pushState({view:'detail',id:movie.id},'',targetHash);
+  }
+  $('#detail-title').textContent=movie.title;
+  $('#detail-meta').textContent=[movie.year||'Classic',(movie.genres||[movie.genre]).join(', '),movie.rating?`★ ${movie.rating.toFixed(1)}`:'',movie.duration,movie.source].filter(Boolean).join(' · ');
+  $('#detail-description').textContent=movie.source==='Internet Archive'?`${movie.description} Source: Internet Archive. Rights and playback availability vary by item; check the source record before use.`:movie.source==='TMDB'?`${movie.description} Details and regional viewing options from TMDB.`:movie.description;
+  const bgUrl=movie.backdrop||movie.poster||'';
+  const backdropEl=$('#detail-backdrop');
+  if(backdropEl)backdropEl.style.backgroundImage=bgUrl?`linear-gradient(180deg, rgba(9,11,16,.25) 0%, rgba(9,11,16,.72) 55%, #090b10 100%), url('${bgUrl}')`:'';
+  const posterEl=$('#detail-poster');
+  if(posterEl){
+    posterEl.src=movie.poster||movie.backdrop||'';
+    posterEl.alt=`${movie.title} poster`;
+    posterEl.hidden=!(movie.poster||movie.backdrop);
+  }
+  $('#detail-kicker').textContent=isTV?'TV SERIES':movie.tag||movie.source||'FEATURED TITLE';
+  const canPlay=Boolean(movie.videoUrl||(movie.source==='TMDB'&&movie.tmdbId));
+  const play=$('#detail-play');
+  play.disabled=!canPlay;
+  play.innerHTML=canPlay?`<span class="play-triangle">${SVG_PLAY}</span> Play`:'No stream linked';
+  play.onclick=()=>{if(canPlay)playMovie(movie)};
+  const saveBtn=$('#detail-save');
+  saveBtn.innerHTML=saved.has(movie.id)?`${SVG_HEART} In my list`:`${SVG_PLUS} My list`;
+  saveBtn.onclick=()=>{
+    if(saved.has(movie.id)){saved.delete(movie.id);delete savedItems[movie.id];notify('Removed from My list')}
+    else{saved.add(movie.id);savedItems[movie.id]=movie;notify('Added to My list')}
+    persist();
+    saveBtn.innerHTML=saved.has(movie.id)?`${SVG_HEART} In my list`:`${SVG_PLUS} My list`;
+  };
+  const panel=$('#provider-panel');
+  panel.hidden=movie.source!=='TMDB';
+  $('#provider-note').textContent='Checking free availability…';
+  $('#provider-links').innerHTML='';
+  switchView('detail');
+  if(autoplay&&canPlay){
+    playMovie(movie);
+  }
+  if(movie.source==='TMDB'){
+    const region=$('#region-filter')?.value||'US',reqType=isTV?'tv':'movie';
+    const fetchTitleInfo=async()=>{
+      try{
+        let r=await fetch(`/api/title/${reqType}/${movie.tmdbId}`);
+        if(!r.ok)r=await fetch(`/api/title?type=${reqType}&id=${movie.tmdbId}`);
+        if(!r.ok)return;
+        const d=await r.json();
+        if(!d||activeMovie?.id!==movie.id)return;
+        if(isTV){
+          movie.numberOfSeasons=d.number_of_seasons||(d.seasons?.filter(s=>s.season_number>0).length)||1;
+          movie.numberOfEpisodes=d.number_of_episodes||24;
+          movie.seasons=d.seasons||[];
+        }
+        movie.duration=isTV?`${d.number_of_seasons||1} seasons · ${d.number_of_episodes||0} episodes`:d.runtime?`${Math.floor(d.runtime/60)}h ${d.runtime%60}m`:'';
+        movie.genres=(d.genres||[]).map(g=>g.name);
+        movie.genre=movie.genres.join(', ')||movie.genre;
+        const cast=(d.credits?.cast||d.aggregate_credits?.cast||[]).slice(0,5).map(p=>p.name).join(', ');
+        $('#detail-meta').textContent=[movie.year,movie.genres.join(', '),movie.rating?`★ ${movie.rating.toFixed(1)}`:'',movie.duration].filter(Boolean).join(' · ');
+        $('#detail-description').textContent=`${d.overview||movie.description}${d.tagline?` “${d.tagline}”`:''}${cast?` Cast: ${cast}.`:''} TMDB metadata; viewing options vary by region.`;
+      }catch{}
+    };
+    fetchTitleInfo();
+    const fetchProv=async()=>{
+      try{
+        let r=await fetch(`/api/providers/${reqType}/${movie.tmdbId}?region=${region}`);
+        if(!r.ok)r=await fetch(`/api/providers?type=${reqType}&id=${movie.tmdbId}&region=${region}`);
+        if(!r.ok)return;
+        const data=await r.json();
+        if(activeMovie?.id!==movie.id)return;
+        const free=data?.free||[],ads=data?.ads||[],items=free.length?free:ads;
+        $('#provider-note').textContent=items.length?`${free.length?'Free':'Free with ads'} options in ${$('#region-filter')?.selectedOptions[0]?.textContent||'US'}: ${items.map(p=>p.provider_name).join(', ')}.`:`No free provider is listed in ${$('#region-filter')?.selectedOptions[0]?.textContent||'US'}.`;
+        $('#provider-links').innerHTML=data?.link?`<a class="provider-link" href="${data.link}" target="_blank" rel="noopener noreferrer">See viewing options on TMDB ↗</a>`:'';
+      }catch{
+        $('#provider-note').textContent='Provider availability is temporarily unavailable.';
+      }
+    };
+    fetchProv();
+  }
+}
+let lastProgressSave=0;
+function playMovie(movie){
+  const prevId=activeMovie?.id;
+  activeMovie=movie;
+  if(prevId!==movie.id){currentSeason=1;currentEpisode=1}
+  const video=$('#video-player'),frame=$('#stream-player'),embedded=movie.source==='TMDB'&&movie.tmdbId,isTV=embedded&&(movie.mediaType==='tv'||String(movie.id).includes('tmdb-tv-')||(movie.seasons&&movie.seasons.length>0)||(movie.numberOfSeasons&&movie.numberOfSeasons>0));
+  if(isTV)movie.mediaType='tv';
+  try{video.pause();video.removeAttribute('src');video.querySelectorAll('track').forEach(t=>t.remove())}catch{}
+  try{frame.removeAttribute('src')}catch{}
+  video.hidden=Boolean(embedded);
+  frame.hidden=!embedded;
+  $('#quality-option').hidden=Boolean(embedded);
+  $('#subtitle-option').hidden=Boolean(embedded);
+  $('#server-option').hidden=!embedded;
+  if($('#season-option'))$('#season-option').hidden=!isTV;
+  if($('#episode-option'))$('#episode-option').hidden=!isTV;
+  $('#player-reload').hidden=!embedded;
+  $('#player-note').textContent=embedded?(adBlockerActive?'Playback protected by MovieBox Inbuilt Ad & Redirect Shield.':'Streaming without ad blocker. Redirect protection is paused.'):'Playback provided in crisp 1080p Full HD.';
+  $('#player-title').textContent=movie.title;
+  $('#player-subtitle').textContent=`${movie.tag?'A MovieBox Original · ':''}${movie.year||''}${movie.duration?` · ${movie.duration}`:''}`;
+  if(embedded){
+    applyAdBlockerSandbox();
+    const type=isTV?'tv':'movie',savedProgress=progress[movie.id],startAt=savedProgress?.time||0;
+    if($('#server-select'))$('#server-select').value=currentStreamServer;
+    const sSel=$('#season-select'),eSel=$('#episode-select');
+    const updateTvPickers=()=>{
+      if(!isTV||!sSel||!eSel)return;
+      let seasonList=(movie.seasons||[]).filter(s=>s&&s.season_number>0);
+      if(!seasonList.length&&movie.seasons?.length){seasonList=movie.seasons.filter(s=>s&&s.season_number!==0)}
+      const totalS=Math.max(1,movie.numberOfSeasons||1,seasonList.length);
+      for(let s=1;s<=totalS;s++){if(!seasonList.some(item=>Number(item.season_number)===s)){seasonList.push({season_number:s,name:`Season ${s}`,episode_count:24})}}
+      seasonList.sort((a,b)=>Number(a.season_number)-Number(b.season_number));
+      let sHtml='';
+      seasonList.forEach(s=>{const sNum=Number(s.season_number);sHtml+=`<option value="${sNum}" ${sNum===currentSeason?'selected':''}>${s.name||`Season ${sNum}`}</option>`});
+      sSel.innerHTML=sHtml;
+      sSel.value=String(currentSeason);
+      const sData=seasonList.find(s=>Number(s.season_number)===currentSeason);
+      const epMax=Math.max(1,sData?.episode_count||(movie.numberOfEpisodes&&movie.numberOfEpisodes<=24?movie.numberOfEpisodes:24));
+      let eHtml='';
+      for(let e=1;e<=epMax;e++){eHtml+=`<option value="${e}" ${e===currentEpisode?'selected':''}>Episode ${e}</option>`}
+      eSel.innerHTML=eHtml;
+      if(currentEpisode>epMax)currentEpisode=1;
+      eSel.value=String(currentEpisode);
+    };
+    if(isTV){
+      updateTvPickers();
+      sSel.onchange=()=>{currentSeason=Number(sSel.value)||1;currentEpisode=1;updateTvPickers();frame.src=getStreamUrl(currentStreamServer,'tv',movie.tmdbId,0,currentSeason,currentEpisode);notify(`Loaded Season ${currentSeason}, Episode 1`)};
+      eSel.onchange=()=>{currentEpisode=Number(eSel.value)||1;frame.src=getStreamUrl(currentStreamServer,'tv',movie.tmdbId,0,currentSeason,currentEpisode);notify(`Loaded Season ${currentSeason}, Episode ${currentEpisode}`)};
+      const loadTvDetails=async()=>{try{let r=await fetch(`/api/title/tv/${movie.tmdbId}`);if(!r.ok)r=await fetch(`/api/title?type=tv&id=${movie.tmdbId}`);if(!r.ok)return;const d=await r.json();if(!d||activeMovie?.id!==movie.id)return;movie.numberOfSeasons=d.number_of_seasons||(d.seasons?.filter(s=>s.season_number>0).length)||1;movie.numberOfEpisodes=d.number_of_episodes||24;movie.seasons=d.seasons||[];updateTvPickers()}catch{}};
+      loadTvDetails();
+    }
+    frame.src=getStreamUrl(currentStreamServer,type,movie.tmdbId,startAt,currentSeason,currentEpisode);
+    const serverName=$('#server-select')?.selectedOptions[0]?.textContent||(currentStreamServer==='vidlink'?'VidLink':'CineSrc');
+    $('#player-label').textContent=adBlockerActive?`${serverName.toUpperCase()} · SHIELD ACTIVE`:`${serverName.toUpperCase()} PLAYER`;
+    $('#quality-select').innerHTML='<option value="auto">Player controls</option>';
+    $('#subtitle-select').innerHTML='<option value="off">Player controls</option>';
+    updateAdBlockUI();
+  }else{
+    const qMap=movie.qualityUrls||DEMO_QUALITIES;
+    const initialQuality=qMap['1080']?'1080':(Object.keys(qMap)[0]||'auto');
+    video.src=qMap[initialQuality]||movie.videoUrl||DEMO_1080P;
+    if(movie.subtitlesUrl){const track=document.createElement('track');track.kind='subtitles';track.label=movie.subtitleLabel||'English';track.srclang=movie.subtitleLanguage||'en';track.src=movie.subtitlesUrl;video.append(track)}
+    $('#player-label').textContent=movie.videoUrl?'NOW PLAYING · FULL HD':'DEMO PLAYER · 1080P FULL HD';
+    let qOptions='<option value="auto">Auto (1080p)</option>';
+    if(qMap['1080'])qOptions+=`<option value="1080" ${initialQuality==='1080'?'selected':''}>1080p Full HD</option>`;
+    if(qMap['720'])qOptions+=`<option value="720" ${initialQuality==='720'?'selected':''}>720p HD</option>`;
+    if(qMap['480'])qOptions+=`<option value="480" ${initialQuality==='480'?'selected':''}>480p SD</option>`;
+    for(const k of Object.keys(qMap)){if(!['1080','720','480'].includes(k))qOptions+=`<option value="${k}">${k}p</option>`}
+    $('#quality-select').innerHTML=qOptions;
+    $('#quality-select').value=initialQuality;
+    $('#quality-select').onchange=()=>{const next=$('#quality-select').value,targetUrl=next==='auto'?(qMap['1080']||movie.videoUrl||DEMO_1080P):(qMap[next]||movie.videoUrl||DEMO_1080P),at=video.currentTime,wasPlaying=!video.paused;video.src=targetUrl;video.onloadedmetadata=()=>{video.currentTime=at;if(wasPlaying)video.play().catch(()=>{})};notify(`Quality set to ${next==='auto'?'Auto (1080p Full HD)':next+'p'+(next==='1080'?' Full HD':'')}`)};
+    $('#subtitle-select').innerHTML=`<option value="off">Off</option>${movie.subtitlesUrl?`<option value="en">${movie.subtitleLabel||'English'}</option>`:''}`;
+    $('#subtitle-select').value='off';
+    $('#subtitle-select').onchange=e=>{video.querySelectorAll('track').forEach(t=>t.track.mode=e.target.value==='off'?'disabled':'showing')};
+    video.onloadedmetadata=()=>{const savedProgress=progress[movie.id];if(savedProgress?.time&&savedProgress.time<video.duration-5)video.currentTime=savedProgress.time};
+    video.ontimeupdate=()=>{if(video.duration){progress[movie.id]={time:video.currentTime,pct:Math.min(100,Math.round(video.currentTime/video.duration*100))};const now=Date.now();if(now-lastProgressSave>5000){lastProgressSave=now;persist()}}};
+  }
+  const stage=$('#player-stage');
+  if(stage){
+    stage.hidden=false;
+    window.scrollTo({top:0,behavior:'auto'});
+  }
+  if(!embedded)video.play().catch(()=>{});
+}
+window.addEventListener('message',event=>{if(!activeMovie||event.source!==$('#stream-player')?.contentWindow)return;const payload=event.data;if(payload?.type!=='PLAYER_EVENT')return;const data=payload.data||{},seconds=Number(data.player_progress),duration=Number(data.player_duration);if(Number.isFinite(seconds)){progress[activeMovie.id]={time:seconds,pct:duration>0?Math.min(100,Math.round(seconds/duration*100)):(progress[activeMovie.id]?.pct||0)};const now=Date.now();if(now-lastProgressSave>5000||data.player_status==='completed'){lastProgressSave=now;persist()}if(data.player_status==='completed')progress[activeMovie.id].pct=100}});
 let heroMovies=[],heroIndex=0,heroTimer=null;
 function updateHeroDots(){const dotsContainer=$('#hero-dots');if(!dotsContainer||!heroMovies.length)return;const count=Math.min(5,heroMovies.length);let html='';for(let i=0;i<count;i++)html+=`<button type="button" class="hero-dot ${i===heroIndex?'active':''}" data-hero-index="${i}" aria-label="Go to slide ${i+1}"></button>`;dotsContainer.innerHTML=html;dotsContainer.querySelectorAll('[data-hero-index]').forEach(dot=>{dot.onclick=e=>{e.stopPropagation();setHeroMovie(Number(dot.dataset.heroIndex));restartHeroCarousel()}})}
-function setHeroMovie(idx){if(!heroMovies.length)return;const count=Math.min(5,heroMovies.length);heroIndex=((idx%count)+count)%count;const item=heroMovies[heroIndex];if(!item)return;const titleEl=$('#hero-title'),descEl=$('#hero-description'),eyebrowEl=$('#hero-eyebrow'),matchEl=$('#hero-match'),yearEl=$('#hero-year'),ratingEl=$('#hero-rating'),playBtn=$('#hero-play'),infoBtn=$('#hero-info'),artEl=$('.hero-art');if(titleEl)titleEl.textContent=item.title.toUpperCase();if(descEl)descEl.textContent=item.description||'';if(eyebrowEl)eyebrowEl.textContent=item.mediaType==='tv'?'POPULAR TV ON MOVIEBOX':(item.tag||'POPULAR ON MOVIEBOX');if(matchEl)matchEl.textContent=item.source==='TMDB'?'TMDB':'Featured';if(yearEl)yearEl.textContent=item.year||'Movie';if(ratingEl)ratingEl.textContent=item.rating?`★ ${item.rating.toFixed(1)}`:'HD';if(playBtn){playBtn.innerHTML=`<span class="play-triangle">${SVG_PLAY}</span> Play now`;playBtn.onclick=()=>playMovie(item)}if(infoBtn){infoBtn.innerHTML=`<span class="info-icon">i</span> More info`;infoBtn.onclick=()=>openInfo(item)}if(artEl){const artUrl=item.backdrop||item.poster||'';artEl.style.backgroundImage=artUrl?`linear-gradient(180deg,rgba(9,11,16,.15) 0%,rgba(9,11,16,.45) 45%,rgba(9,11,16,.95) 85%,#090b10 100%),linear-gradient(90deg,rgba(9,11,16,.94) 0%,rgba(9,11,16,.8) 36%,rgba(9,11,16,.25) 70%,transparent 100%),url('${artUrl}')`:''}updateHeroDots()}
+function setHeroMovie(idx){if(!heroMovies.length)return;const count=Math.min(5,heroMovies.length);heroIndex=((idx%count)+count)%count;const item=heroMovies[heroIndex];if(!item)return;const titleEl=$('#hero-title'),descEl=$('#hero-description'),eyebrowEl=$('#hero-eyebrow'),matchEl=$('#hero-match'),yearEl=$('#hero-year'),ratingEl=$('#hero-rating'),playBtn=$('#hero-play'),infoBtn=$('#hero-info'),artEl=$('.hero-art');if(titleEl)titleEl.textContent=item.title.toUpperCase();if(descEl)descEl.textContent=item.description||'';if(eyebrowEl)eyebrowEl.textContent=item.mediaType==='tv'?'POPULAR TV ON MOVIEBOX':(item.tag||'POPULAR ON MOVIEBOX');if(matchEl)matchEl.textContent=item.source==='TMDB'?'TMDB':'Featured';if(yearEl)yearEl.textContent=item.year||'Movie';if(ratingEl)ratingEl.textContent=item.rating?`★ ${item.rating.toFixed(1)}`:'HD';if(playBtn){playBtn.innerHTML=`<span class="play-triangle">${SVG_PLAY}</span> Play now`;playBtn.onclick=()=>openDetailPage(item,{autoplay:true})}if(infoBtn){infoBtn.innerHTML=`<span class="info-icon">i</span> More info`;infoBtn.onclick=()=>openDetailPage(item)}if(artEl){const artUrl=item.backdrop||item.poster||'';artEl.style.backgroundImage=artUrl?`linear-gradient(180deg,rgba(9,11,16,.15) 0%,rgba(9,11,16,.45) 45%,rgba(9,11,16,.95) 85%,#090b10 100%),linear-gradient(90deg,rgba(9,11,16,.94) 0%,rgba(9,11,16,.8) 36%,rgba(9,11,16,.25) 70%,transparent 100%),url('${artUrl}')`:''}updateHeroDots()}
 function startHeroCarousel(){stopHeroCarousel();if(heroMovies.length>1)heroTimer=setInterval(()=>setHeroMovie(heroIndex+1),6000)}
 function stopHeroCarousel(){if(heroTimer){clearInterval(heroTimer);heroTimer=null}}
 function restartHeroCarousel(){stopHeroCarousel();startHeroCarousel()}
@@ -214,12 +414,14 @@ heroSection?.addEventListener('mouseenter',stopHeroCarousel);
 heroSection?.addEventListener('mouseleave',startHeroCarousel);
 heroSection?.addEventListener('touchstart',stopHeroCarousel,{passive:true});
 heroSection?.addEventListener('touchend',startHeroCarousel,{passive:true});
-$('#filter-toggle').onclick=()=>{$('#filter-panel').hidden=!$('#filter-panel').hidden};['genre-filter','year-filter','sort-filter','media-type','availability-filter','region-filter'].forEach(id=>$('#'+id).onchange=()=>catalog.some(m=>m.source==='TMDB')?loadTMDBCatalog(searchInput?.value.trim()||'',1).catch(err=>notify(err.message)):render());$('#clear-filters').onclick=()=>{$('#genre-filter').value='all';$('#year-filter').value='all';$('#sort-filter').value='featured';if(catalog.some(m=>m.source==='TMDB'))loadTMDBCatalog(searchInput?.value.trim()||'',1).catch(err=>notify(err.message));else render()};$$('[data-close]').forEach(b=>b.onclick=()=>{if(b.dataset.close==='player-dialog'){stopPlayer()}else{$('#'+b.dataset.close)?.close()}});$$('dialog').forEach(d=>{d.addEventListener('click',e=>{if(e.target===d){if(d.id==='player-dialog')stopPlayer();else d.close()}});d.addEventListener('close',()=>{if(d.id==='player-dialog')stopPlayer();if(!$$('dialog[open]').length)document.body.classList.remove('dialog-open')});d.addEventListener('cancel',()=>{if(d.id==='player-dialog')stopPlayer()})});
+$('#filter-toggle').onclick=()=>{$('#filter-panel').hidden=!$('#filter-panel').hidden};['genre-filter','year-filter','sort-filter','media-type','availability-filter','region-filter'].forEach(id=>$('#'+id).onchange=()=>catalog.some(m=>m.source==='TMDB')?loadTMDBCatalog(searchInput?.value.trim()||'',1).catch(err=>notify(err.message)):render());$('#clear-filters').onclick=()=>{$('#genre-filter').value='all';$('#year-filter').value='all';$('#sort-filter').value='featured';if(catalog.some(m=>m.source==='TMDB'))loadTMDBCatalog(searchInput?.value.trim()||'',1).catch(err=>notify(err.message));else render()};$$('[data-close]').forEach(b=>b.onclick=()=>$('#'+b.dataset.close)?.close());$$('dialog').forEach(d=>{d.addEventListener('click',e=>{if(e.target===d)d.close()});d.addEventListener('close',()=>{if(!$$('dialog[open]').length)document.body.classList.remove('dialog-open')})});
 let searchTimer,searchRequest=0;const searchInput=$('#search-input'),searchBox=$('#search-box'),searchClose=$('#search-close'),searchToggle=$('#search-toggle')||$('.search-toggle');function openSearch(){searchBox?.classList.add('open');searchInput?.focus()}function closeSearch(){if(!searchInput)return;const had=searchInput.value.trim().length>0;searchInput.value='';searchBox?.classList.remove('open');render();if(had&&catalog.some(m=>m.source==='TMDB'))refreshTMDBCatalog('')}searchToggle?.addEventListener('click',()=>{if(searchBox?.classList.contains('open'))closeSearch();else openSearch()});searchClose?.addEventListener('click',closeSearch);searchInput?.addEventListener('input',()=>{render();if(catalog.some(m=>m.source==='TMDB')){clearTimeout(searchTimer);searchTimer=setTimeout(()=>refreshTMDBCatalog(searchInput.value.trim()),320)}});searchInput?.addEventListener('keydown',e=>{if(e.key==='Escape')closeSearch()});
 $$('.see-all').forEach(link=>link.addEventListener('click',e=>{e.preventDefault();isListView=true;render();scrollToList()}));
-$$('[data-view]').forEach(link=>link.addEventListener('click',e=>{const view=link.dataset.view;const mediaType=link.dataset.mediaType;if(view==='saved'){e.preventDefault();history.pushState(null,'','#my-list');switchView('saved')}else if(view==='home'){e.preventDefault();history.pushState(null,'','#home');isListView=false;switchView('home')}else if(view==='discover'){e.preventDefault();isListView=true;switchView('discover')}else if(view==='movies'||view==='tv'){e.preventDefault();isListView=true;if(currentView==='saved')switchView('discover');if(mediaType&&$('#media-type')){$('#media-type').value=mediaType;loadTMDBCatalog(searchInput?.value.trim()||'',1).then(scrollToList).catch(err=>notify(err.message))}}}));
+$$('[data-view]').forEach(link=>link.addEventListener('click',e=>{const view=link.dataset.view;const mediaType=link.dataset.mediaType;if(view==='saved'){e.preventDefault();history.pushState(null,'','#my-list');switchView('saved')}else if(view==='home'){e.preventDefault();history.pushState(null,'','#home');isListView=false;switchView('home')}else if(view==='discover'){e.preventDefault();isListView=true;switchView('discover')}else if(view==='movies'||view==='tv'){e.preventDefault();isListView=true;if(currentView==='saved'||currentView==='detail')switchView('discover');if(mediaType&&$('#media-type')){$('#media-type').value=mediaType;loadTMDBCatalog(searchInput?.value.trim()||'',1).then(scrollToList).catch(err=>notify(err.message))}}}));
 $('#my-list-browse-btn')?.addEventListener('click',()=>{history.pushState(null,'','#home');switchView('home')});
-function handleRoute(){const hash=window.location.hash;if(hash==='#my-list')switchView('saved');else if(hash==='#home'||!hash){if(currentView==='saved')switchView('home')}else if(hash==='#discover'){if(currentView==='saved')switchView('discover')}}
+$('#detail-back')?.addEventListener('click',()=>{stopPlayer();if(window.history.length>1&&window.location.hash.startsWith('#title/')){history.back()}else{history.pushState(null,'','#home');switchView('home')}});
+$('#player-close')?.addEventListener('click',stopPlayer);
+function handleRoute(){const hash=window.location.hash;if(hash==='#my-list'){switchView('saved')}else if(hash.startsWith('#title/')){const id=decodeURIComponent(hash.slice('#title/'.length));const movie=catalog.find(m=>m.id===id)||savedItems[id]||movies.find(m=>m.id===id);if(movie)openDetailPage(movie,{skipPush:true});else switchView('home')}else if(hash==='#home'||!hash){if(currentView==='saved'||currentView==='detail')switchView('home')}else if(hash==='#discover'){if(currentView==='saved'||currentView==='detail')switchView('discover')}}
 window.addEventListener('hashchange',handleRoute);
 $('#server-settings').onclick=()=>{const cfg=JSON.parse(localStorage.getItem('wath32-server')||'{}');$('#server-url').value=cfg.url||'';$('#server-token').value=cfg.token||'';showDialog($('#server-dialog'))};$('#server-form').onsubmit=async e=>{e.preventDefault();const url=$('#server-url').value.trim(),token=$('#server-token').value.trim();if(!url){localStorage.removeItem('wath32-server');catalog=[...movies];refreshFilterOptions();$('#server-dialog').close();render();loadInternetArchive();return}localStorage.setItem('wath32-server',JSON.stringify({url,token}));try{const res=await fetch(url,{headers:token?{Authorization:`Bearer ${token}`}:{}});if(!res.ok)throw Error(`Server returned ${res.status}`);const data=await res.json();if(!Array.isArray(data))throw Error('Catalog response must be a JSON array');catalog=data.map((m,i)=>({...m,id:String(m.id??`server-${i}`),year:Number(m.year)||2025,rating:Number(m.rating)||0,genre:m.genre||'Film',duration:m.duration||'',description:m.description||'',poster:m.poster||'',videoUrl:m.videoUrl||'',subtitlesUrl:m.subtitlesUrl||''}));currentPage=1;totalPages=1;totalResults=catalog.length;refreshFilterOptions();$('#server-dialog').close();render();notify(`Connected · ${catalog.length} titles`)}catch(err){notify(`Couldn’t connect: ${err.message}`)}};
 function formatDuration(value){if(!value)return'';const mins=Math.round(parseFloat(String(value).replace(/[^0-9.]/g,''))*60);return Number.isFinite(mins)&&mins?`${Math.floor(mins/60)}h ${mins%60}m`:String(value)}
@@ -227,17 +429,30 @@ function stripHtml(value){if(!value)return'';const el=document.createElement('di
 async function loadInternetArchive(){try{const fields=['identifier','title','year','description','creator','subject','runtime'];const params=new URLSearchParams({q:'collection:feature_films AND mediatype:movies',rows:'40',page:'1',output:'json'});fields.forEach(f=>params.append('fl[]',f));const res=await fetch(`https://archive.org/advancedsearch.php?${params}`);if(!res.ok)throw Error(`Catalog returned ${res.status}`);const payload=await res.json(),docs=payload.response?.docs||[];const items=await Promise.all(docs.slice(0,30).map(async d=>{try{const mr=await fetch(`https://archive.org/metadata/${encodeURIComponent(d.identifier)}`);if(!mr.ok)return null;const meta=await mr.json(),files=meta.files||[];const mp4Files=files.filter(f=>/\.mp4$/i.test(f.name||'')&&!f.name?.includes('__ia_thumb'));if(!mp4Files.length)return null;mp4Files.sort((a,b)=>(Number(b.height)||0)-(Number(a.height)||0)||(Number(b.size)||0)-(Number(a.size)||0));const video=mp4Files[0],qMap={};for(const f of mp4Files){const h=Number(f.height)||0,fUrl=`https://archive.org/download/${encodeURIComponent(d.identifier)}/${encodeURIComponent(f.name)}`;if(h>=1000&&!qMap['1080'])qMap['1080']=fUrl;else if(h>=700&&!qMap['720'])qMap['720']=fUrl;else if(h>=400&&!qMap['480'])qMap['480']=fUrl}if(!Object.keys(qMap).length){qMap['1080']=`https://archive.org/download/${encodeURIComponent(d.identifier)}/${encodeURIComponent(video.name)}`}const title=Array.isArray(d.title)?d.title[0]:d.title,subjects=Array.isArray(d.subject)?d.subject:typeof d.subject==='string'?d.subject.split(';'):[],genre=subjects.find(s=>/drama|comedy|horror|western|adventure|science fiction|documentary|thriller/i.test(s))||'Classic film',description=Array.isArray(d.description)?d.description[0]:d.description;return{id:String(d.identifier),title:title||d.identifier,year:Number((Array.isArray(d.year)?d.year[0]:d.year)||meta.metadata?.year)||0,genre:genre.split(/[,;]/)[0].trim(),rating:0,duration:formatDuration(d.runtime||meta.metadata?.runtime),poster:`https://archive.org/services/img/${encodeURIComponent(d.identifier)}`,description:stripHtml(description)||'A film from the Internet Archive feature film collection.',videoUrl:qMap['1080']||`https://archive.org/download/${encodeURIComponent(d.identifier)}/${encodeURIComponent(video.name)}`,qualityUrls:qMap,source:'Internet Archive',license:meta.metadata?.licenseurl||'Check item record'}}catch{return null}}));catalog=items.filter(Boolean);if(!catalog.length)throw Error('No playable MP4 films were found in this collection');currentPage=1;totalPages=1;totalResults=catalog.length;refreshFilterOptions();setupHeroCarousel(catalog);render();notify(`Loaded ${catalog.length} classic films in Full HD`)}catch(err){console.warn('Internet Archive catalog unavailable',err);notify('Free catalog unavailable · Showing demo titles')}}
 async function refreshTMDBCatalog(query='',page=1){const request=++searchRequest;currentPage=page;const params=new URLSearchParams({page:String(page),genre:$('#genre-filter').value,year:$('#year-filter').value,sort:$('#sort-filter').value,type:$('#media-type').value,availability:$('#availability-filter').value,region:$('#region-filter').value});if(query)params.set('query',query);const res=await fetch(`/api/catalog?${params}`);if(!res.ok){const detail=await res.json().catch(()=>({}));throw Error(detail.error||'TMDB catalog is unavailable')}const payload=await res.json();if(request!==searchRequest)return;if(!payload.results?.length&&query){catalog=[];totalPages=1;totalResults=0;render();return}if(!payload.results?.length)throw Error('TMDB returned no titles for these filters');catalog=getUniqueMovies(payload.results);catalog.forEach(m=>{if(saved.has(m.id))savedItems[m.id]=m});persist();currentPage=payload.page||page;totalPages=payload.totalPages||1;totalResults=payload.total||catalog.length;refreshFilterOptions();if(!query&&currentPage===1&&$('#genre-filter').value==='all'&&$('#year-filter').value==='all'){setupHeroCarousel(catalog)}render()}
 async function loadTMDBCatalog(query='',page=1){await refreshTMDBCatalog(query,page);if(!query)notify(`Loaded ${catalog.length} ${$('#media-type').value==='tv'?'TV shows':'movies'} from TMDB`)}
-function toggleFullscreen(){const dialog=$('#player-dialog'),video=$('#video-player'),frame=$('#stream-player'),target=video.hidden?frame:video;if(!document.fullscreenElement&&!document.webkitFullscreenElement){if(target.requestFullscreen)target.requestFullscreen().catch(()=>{dialog.requestFullscreen?.().catch(()=>{})});else if(target.webkitRequestFullscreen)target.webkitRequestFullscreen();else if(dialog.requestFullscreen)dialog.requestFullscreen().catch(()=>{})}else{if(document.exitFullscreen)document.exitFullscreen().catch(()=>{});else if(document.webkitExitFullscreen)document.webkitExitFullscreen()}}
+function toggleFullscreen(){
+  const stage=$('#player-stage'),video=$('#video-player'),frame=$('#stream-player'),target=video&&!video.hidden?video:(frame||stage);
+  if(!target)return;
+  try{
+    if(!document.fullscreenElement&&!document.webkitFullscreenElement){
+      if(target.requestFullscreen){target.requestFullscreen().catch(()=>{try{stage?.requestFullscreen?.().catch(()=>{})}catch{}})}
+      else if(target.webkitRequestFullscreen){target.webkitRequestFullscreen()}
+      else if(stage?.requestFullscreen){stage.requestFullscreen().catch(()=>{})}
+    }else{
+      if(document.exitFullscreen){document.exitFullscreen().catch(()=>{})}
+      else if(document.webkitExitFullscreen){document.webkitExitFullscreen()}
+    }
+  }catch{}
+}
 $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
 $('#player-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));
 $('#top-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));
 $('#adblock-setting-toggle')?.addEventListener('change',e=>setAdBlocker(e.target.checked));
-$('#server-select')?.addEventListener('change',e=>{currentStreamServer=e.target.value==='cinesrc'?'cinesrc':'vidlink';localStorage.setItem('moviebox-stream-server',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&$('#player-dialog')?.open){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||(currentStreamServer==='vidlink'?'VidLink':'CineSrc')}`);playMovie(activeMovie)}});
-$('#player-reload')?.addEventListener('click',()=>{if(activeMovie&&$('#player-dialog')?.open){notify('↻ Reloading stream with Ad Shield active…');playMovie(activeMovie)}});
-document.addEventListener('keydown',e=>{if(e.key==='/'&&!e.metaKey&&!e.ctrlKey&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();openSearch()}if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&$('#player-dialog')?.open&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();toggleFullscreen()}});
+$('#server-select')?.addEventListener('change',e=>{currentStreamServer=e.target.value==='cinesrc'?'cinesrc':'vidlink';localStorage.setItem('moviebox-stream-server',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||(currentStreamServer==='vidlink'?'VidLink':'CineSrc')}`);playMovie(activeMovie)}});
+$('#player-reload')?.addEventListener('click',()=>{if(activeMovie&&isPlayerActive()){notify('↻ Reloading stream with Ad Shield active…');playMovie(activeMovie)}});
+document.addEventListener('keydown',e=>{if(e.key==='/'&&!e.metaKey&&!e.ctrlKey&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();openSearch()}if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&isPlayerActive()&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();toggleFullscreen()}});
 applyAdBlockerSandbox();
 updateAdBlockUI();
 refreshFilterOptions();
 render();
-if(window.location.hash==='#my-list')switchView('saved');
-loadTMDBCatalog().catch(err=>{console.warn('TMDB catalog unavailable',err);notify('TMDB unavailable · Loading free classic films');loadInternetArchive()});
+handleRoute();
+loadTMDBCatalog().then(()=>{if(window.location.hash.startsWith('#title/')&&currentView!=='detail')handleRoute()}).catch(err=>{console.warn('TMDB catalog unavailable',err);notify('TMDB unavailable · Loading free classic films');loadInternetArchive()});
