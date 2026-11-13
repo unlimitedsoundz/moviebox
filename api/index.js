@@ -63,24 +63,37 @@ function send(res, status, body, contentType = 'application/json; charset=utf-8'
 }
 
 function getRoute(req, url) {
-  // Check if routed by Vercel [...slug] dynamic route
-  if (req.query?.slug && Array.isArray(req.query.slug)) {
-    if (url.pathname.includes('/title')) {
-      return `/api/title/${req.query.slug.join('/')}`;
-    }
-    if (url.pathname.includes('/providers')) {
-      return `/api/providers/${req.query.slug.join('/')}`;
-    }
+  // 1. Original incoming request URL as sent by client (Vercel sets x-vercel-original-url)
+  const orig = req.headers['x-vercel-original-url'] || req.headers['x-forwarded-uri'] || req.headers['x-original-url'];
+  if (orig && orig.startsWith('/api/')) {
+    return orig.split('?')[0];
   }
 
+  // 2. Explicit endpoint query parameter if rewritten
   const endpoint = url.searchParams.get('__endpoint') || url.searchParams.get('_path');
   if (endpoint) {
     return `/api/${endpoint.replace(/^\/+/, '')}`;
   }
-  const matched = req.headers['x-matched-path'] || req.headers['x-vercel-original-url'];
-  if (matched && matched.startsWith('/api/')) {
+
+  // 3. Vercel dynamic route slug handling: api/title/[...slug] or api/providers/[...slug]
+  if (req.query?.slug) {
+    const slugArr = Array.isArray(req.query.slug) ? req.query.slug : [req.query.slug];
+    const rawPath = url.pathname || '';
+    const matched = req.headers['x-matched-path'] || '';
+    if (rawPath.includes('/title') || matched.includes('/title')) {
+      return `/api/title/${slugArr.join('/')}`;
+    }
+    if (rawPath.includes('/providers') || matched.includes('/providers')) {
+      return `/api/providers/${slugArr.join('/')}`;
+    }
+  }
+
+  // 4. x-matched-path only if it doesn't contain bracket patterns like [...slug]
+  const matched = req.headers['x-matched-path'];
+  if (matched && matched.startsWith('/api/') && !matched.includes('[')) {
     return matched.split('?')[0];
   }
+
   return url.pathname;
 }
 
@@ -211,20 +224,40 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    let detailType = '', detailId = '';
     const detailMatch = routePath.match(/^\/api\/title\/(movie|tv)\/(\d+)$/);
     if (detailMatch) {
+      detailType = detailMatch[1];
+      detailId = detailMatch[2];
+    } else if (routePath.startsWith('/api/title')) {
+      detailType = url.searchParams.get('type') || url.searchParams.get('mediaType') || (routePath.includes('/tv') ? 'tv' : routePath.includes('/movie') ? 'movie' : '');
+      const idMatch = routePath.match(/\/(\d+)(?:\/|$|\?)/);
+      detailId = url.searchParams.get('id') || url.searchParams.get('tmdbId') || (idMatch ? idMatch[1] : '');
+    }
+
+    if (detailType && detailId) {
       if (!apiKey) return send(res, 404, { error: 'TMDB_API_KEY missing' });
-      const title = await tmdb(apiKey, `/${detailMatch[1]}/${detailMatch[2]}`, {
-        append_to_response: detailMatch[1] === 'tv' ? 'aggregate_credits,videos' : 'credits,videos'
+      const title = await tmdb(apiKey, `/${detailType}/${detailId}`, {
+        append_to_response: detailType === 'tv' ? 'aggregate_credits,videos' : 'credits,videos'
       });
       return send(res, 200, title);
     }
 
+    let providerType = '', providerId = '';
     const providersMatch = routePath.match(/^\/api\/providers\/(movie|tv)\/(\d+)$/);
     if (providersMatch) {
+      providerType = providersMatch[1];
+      providerId = providersMatch[2];
+    } else if (routePath.startsWith('/api/providers')) {
+      providerType = url.searchParams.get('type') || url.searchParams.get('mediaType') || (routePath.includes('/tv') ? 'tv' : routePath.includes('/movie') ? 'movie' : '');
+      const idMatch = routePath.match(/\/(\d+)(?:\/|$|\?)/);
+      providerId = url.searchParams.get('id') || url.searchParams.get('tmdbId') || (idMatch ? idMatch[1] : '');
+    }
+
+    if (providerType && providerId) {
       if (!apiKey) return send(res, 200, { region: 'US', free: [], ads: [] });
       const region = (url.searchParams.get('region') || 'US').toUpperCase();
-      const data = await tmdb(apiKey, `/${providersMatch[1]}/${providersMatch[2]}/watch/providers`);
+      const data = await tmdb(apiKey, `/${providerType}/${providerId}/watch/providers`);
       return send(res, 200, { region, ...(data.results?.[region] || {}) });
     }
 
