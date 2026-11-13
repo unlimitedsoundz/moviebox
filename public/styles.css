@@ -483,6 +483,7 @@ body {
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  gap: 8px;
   transition: all 0.18s ease;
 }
 
@@ -491,15 +492,37 @@ body {
   color: #fff;
 }
 
-.filter-button > span:first-child {
-  font-size: 15px;
-  margin-right: 8px;
+.filter-button .icon-svg:first-child {
   color: var(--accent);
 }
 
-.chevron {
-  margin-left: 8px;
+.filter-button .chevron-icon {
   color: #9da3ae;
+}
+
+.icon-svg {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.btn-icon svg,
+.close-button svg,
+.search-toggle svg,
+.search-close-button svg,
+.save-card svg {
+  display: block;
+  margin: auto;
+}
+
+.play-triangle svg {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.tv-tag {
+  background: #2563eb !important;
+  color: #fff !important;
 }
 
 .filter-panel {

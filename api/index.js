@@ -118,16 +118,22 @@ module.exports = async function handler(req, res) {
       const genre = url.searchParams.get('genre') || '';
       const year = url.searchParams.get('year') || '';
       const sort = url.searchParams.get('sort') || 'featured';
-      const region = (url.searchParams.get('region') || 'NG').toUpperCase();
+      const region = (url.searchParams.get('region') || 'US').toUpperCase();
       const availability = url.searchParams.get('availability') || 'all';
 
-      const genres = await tmdb(apiKey, `/genre/${mediaType}/list`);
-      const genreNames = Object.fromEntries((genres.genres || []).map(g => [g.id, g.name]));
-      let endpoint = `/${mediaType}/popular`;
+      const [movieGenresRes, tvGenresRes] = await Promise.all([
+        tmdb(apiKey, '/genre/movie/list').catch(() => ({ genres: [] })),
+        tmdb(apiKey, '/genre/tv/list').catch(() => ({ genres: [] }))
+      ]);
+      const genreNames = {
+        ...Object.fromEntries((movieGenresRes.genres || []).map(g => [g.id, g.name])),
+        ...Object.fromEntries((tvGenresRes.genres || []).map(g => [g.id, g.name]))
+      };
+      let endpoint = `/trending/${mediaType}/day`;
       const params = { page: String(page) };
 
       if (search) {
-        endpoint = `/search/${mediaType}`;
+        endpoint = '/search/multi';
         params.query = search;
         params.include_adult = 'false';
       } else if (genre || year || availability !== 'all' || ['rating', 'newest', 'az'].includes(sort)) {
@@ -135,7 +141,8 @@ module.exports = async function handler(req, res) {
         params.watch_region = region;
         if (availability !== 'all') params.with_watch_monetization_types = availability;
         if (genre) {
-          const match = (genres.genres || []).find(g => g.name.toLowerCase() === genre.toLowerCase());
+          const activeGenresList = mediaType === 'tv' ? (tvGenresRes.genres || []) : (movieGenresRes.genres || []);
+          const match = activeGenresList.find(g => g.name.toLowerCase() === genre.toLowerCase());
           if (match) params.with_genres = String(match.id);
         }
         if (/^\d{4}$/.test(year)) params[mediaType === 'tv' ? 'first_air_date_year' : 'primary_release_year'] = year;
@@ -155,11 +162,17 @@ module.exports = async function handler(req, res) {
       }
 
       const resultPage = await tmdb(apiKey, endpoint, params);
-      let sourceResults = resultPage.results || [];
+      let sourceResults = (resultPage.results || []).filter(item => {
+        if (search) {
+          return item.media_type === 'movie' || item.media_type === 'tv' || (!item.media_type && (item.title || item.name));
+        }
+        return true;
+      });
       if (search && availability !== 'all' && sourceResults.length) {
         sourceResults = await Promise.all(sourceResults.map(async item => {
           try {
-            const providerData = await tmdb(apiKey, `/${mediaType}/${item.id}/watch/providers`);
+            const itemType = item.media_type === 'tv' ? 'tv' : 'movie';
+            const providerData = await tmdb(apiKey, `/${itemType}/${item.id}/watch/providers`);
             const regionData = providerData.results?.[region];
             const allowed = availability.split('|').some(group => regionData?.[group]?.length);
             return allowed ? item : null;
@@ -168,20 +181,27 @@ module.exports = async function handler(req, res) {
         sourceResults = sourceResults.filter(Boolean);
       }
 
-      const results = sourceResults.map(m => ({
-        id: `tmdb-${mediaType}-${m.id}`, tmdbId: m.id, mediaType,
-        title: m.title || m.name || m.original_title || m.original_name || 'Untitled',
-        year: Number((m.release_date || m.first_air_date || '').slice(0, 4)) || 0,
-        genre: (m.genre_ids || []).map(id => genreNames[id]).filter(Boolean).join(', ') || 'Movie',
-        genres: (m.genre_ids || []).map(id => genreNames[id]).filter(Boolean),
-        rating: Number(m.vote_average) || 0,
-        duration: '',
-        poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
-        backdrop: m.backdrop_path ? `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` : '',
-        description: m.overview || 'No synopsis is available.',
-        videoUrl: '', source: 'TMDB', voteCount: m.vote_count || 0,
-        originalLanguage: m.original_language || ''
-      }));
+      const results = sourceResults.map(m => {
+        const itemType = search ? (m.media_type === 'tv' ? 'tv' : 'movie') : mediaType;
+        return {
+          id: `tmdb-${itemType}-${m.id}`,
+          tmdbId: m.id,
+          mediaType: itemType,
+          title: m.title || m.name || m.original_title || m.original_name || 'Untitled',
+          year: Number((m.release_date || m.first_air_date || '').slice(0, 4)) || 0,
+          genre: (m.genre_ids || []).map(id => genreNames[id]).filter(Boolean).join(', ') || (itemType === 'tv' ? 'TV Series' : 'Movie'),
+          genres: (m.genre_ids || []).map(id => genreNames[id]).filter(Boolean),
+          rating: Number(m.vote_average) || 0,
+          duration: '',
+          poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
+          backdrop: m.backdrop_path ? `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` : '',
+          description: m.overview || 'No synopsis is available.',
+          videoUrl: '',
+          source: 'TMDB',
+          voteCount: m.vote_count || 0,
+          originalLanguage: m.original_language || ''
+        };
+      });
 
       return send(res, 200, {
         results,
@@ -203,7 +223,7 @@ module.exports = async function handler(req, res) {
     const providersMatch = routePath.match(/^\/api\/providers\/(movie|tv)\/(\d+)$/);
     if (providersMatch) {
       if (!apiKey) return send(res, 200, { region: 'US', free: [], ads: [] });
-      const region = (url.searchParams.get('region') || 'NG').toUpperCase();
+      const region = (url.searchParams.get('region') || 'US').toUpperCase();
       const data = await tmdb(apiKey, `/${providersMatch[1]}/${providersMatch[2]}/watch/providers`);
       return send(res, 200, { region, ...(data.results?.[region] || {}) });
     }
