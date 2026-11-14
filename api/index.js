@@ -350,7 +350,14 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    let detailType = '', detailId = '';
+    const seasonMatch = routePath.match(/^\/api\/title\/tv\/(\d+)\/season\/(\d+)$/);
+    if (seasonMatch) {
+      if (!apiKey) return send(res, 404, { error: 'TMDB_API_KEY missing' });
+      const seasonData = await tmdb(apiKey, `/tv/${seasonMatch[1]}/season/${seasonMatch[2]}`);
+      return send(res, 200, seasonData);
+    }
+
+    let detailType = '', detailId = '', detailSeason = url.searchParams.get('season') || '';
     const detailMatch = routePath.match(/^\/api\/title\/(movie|tv)\/(\d+)$/);
     if (detailMatch) {
       detailType = detailMatch[1];
@@ -363,6 +370,10 @@ module.exports = async function handler(req, res) {
 
     if (detailType && detailId) {
       if (!apiKey) return send(res, 404, { error: 'TMDB_API_KEY missing' });
+      if (detailType === 'tv' && /^\d+$/.test(detailSeason)) {
+        const seasonData = await tmdb(apiKey, `/tv/${detailId}/season/${detailSeason}`);
+        return send(res, 200, seasonData);
+      }
       const title = await tmdb(apiKey, `/${detailType}/${detailId}`, {
         append_to_response: detailType === 'tv' ? 'aggregate_credits,videos' : 'credits,videos'
       });

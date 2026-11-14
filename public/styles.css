@@ -1013,9 +1013,10 @@ dialog::backdrop {
   border-color: var(--accent);
 }
 
-/* Actions Row (Reload & Fullscreen) */
+/* Actions Row (Prev/Next Ep, Skip Intro, Reload & Fullscreen) */
 .player-actions-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   align-items: center;
 }
@@ -1032,6 +1033,34 @@ dialog::backdrop {
   gap: 6px;
   transition: all 0.18s ease;
   white-space: nowrap;
+}
+
+.player-action-button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.player-action-button.ep-nav-btn {
+  background: #171b25;
+  border: 1px solid #313745;
+  color: #e6e9f0;
+}
+
+.player-action-button.ep-nav-btn:hover:not(:disabled) {
+  background: #202634;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.player-action-button.skip-intro-btn {
+  background: rgba(212, 255, 63, 0.16);
+  border: 1px solid rgba(212, 255, 63, 0.45);
+  color: var(--accent);
+}
+
+.player-action-button.skip-intro-btn:hover:not(:disabled) {
+  background: rgba(212, 255, 63, 0.28);
+  border-color: var(--accent);
 }
 
 .player-action-button.reload-btn {
