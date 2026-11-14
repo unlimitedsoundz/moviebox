@@ -227,8 +227,10 @@ module.exports = async function handler(req, res) {
       const rawType = url.searchParams.get('type');
       const mediaType = rawType === 'tv' ? 'tv' : rawType === 'all' ? 'all' : 'movie';
       const page = Math.max(1, Math.min(500, Number(url.searchParams.get('page')) || 1));
-      const genre = url.searchParams.get('genre') || '';
-      const year = url.searchParams.get('year') || '';
+      const rawGenre = url.searchParams.get('genre') || '';
+      const genre = rawGenre.toLowerCase() === 'all' ? '' : rawGenre;
+      const rawYear = url.searchParams.get('year') || '';
+      const year = rawYear.toLowerCase() === 'all' ? '' : rawYear;
       const sort = url.searchParams.get('sort') || 'featured';
       const region = (url.searchParams.get('region') || 'US').toUpperCase();
       const availability = url.searchParams.get('availability') || 'all';
