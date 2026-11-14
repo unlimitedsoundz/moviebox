@@ -12,6 +12,104 @@ if (fs.existsSync(envFile)) {
   } catch {}
 }
 
+function mapTmdbItem(m, itemType, genreNames) {
+  return {
+    id: `tmdb-${itemType}-${m.id}`,
+    tmdbId: m.id,
+    mediaType: itemType,
+    title: m.title || m.name || m.original_title || m.original_name || 'Untitled',
+    year: Number((m.release_date || m.first_air_date || '').slice(0, 4)) || 0,
+    releaseDate: m.release_date || m.first_air_date || '',
+    genre: (m.genre_ids || []).map(id => genreNames[id]).filter(Boolean).join(', ') || (itemType === 'tv' ? 'TV Series' : 'Movie'),
+    genres: (m.genre_ids || []).map(id => genreNames[id]).filter(Boolean),
+    rating: Number(m.vote_average) || 0,
+    duration: '',
+    poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
+    backdrop: m.backdrop_path ? `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` : '',
+    description: m.overview || 'No synopsis is available.',
+    videoUrl: '',
+    source: 'TMDB',
+    voteCount: m.vote_count || 0,
+    originalLanguage: m.original_language || ''
+  };
+}
+
+function interleaveUnique(movieList, tvList) {
+  const combined = [];
+  const seen = new Set();
+  const maxLen = Math.max(movieList.length, tvList.length);
+  for (let i = 0; i < maxLen; i++) {
+    for (const candidate of [movieList[i], tvList[i]]) {
+      if (!candidate || !candidate.id) continue;
+      const key = `${candidate._mediaType}-${candidate.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      combined.push(candidate);
+    }
+  }
+  return combined;
+}
+
+async function fetchRecent24h(apiKey, genreNames, region = 'US') {
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const todayStr = now.toISOString().slice(0, 10);
+  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+  const [primaryMovies, regionalMovies, newTv, airingTodayTv, airDateTv] = await Promise.all([
+    tmdb(apiKey, '/discover/movie', {
+      'primary_release_date.gte': yesterdayStr,
+      'primary_release_date.lte': todayStr,
+      sort_by: 'popularity.desc',
+      include_adult: 'false',
+      page: '1'
+    }).catch(() => ({ results: [] })),
+    tmdb(apiKey, '/discover/movie', {
+      'release_date.gte': yesterdayStr,
+      'release_date.lte': todayStr,
+      region,
+      sort_by: 'popularity.desc',
+      include_adult: 'false',
+      page: '1'
+    }).catch(() => ({ results: [] })),
+    tmdb(apiKey, '/discover/tv', {
+      'first_air_date.gte': yesterdayStr,
+      'first_air_date.lte': todayStr,
+      sort_by: 'popularity.desc',
+      include_adult: 'false',
+      page: '1'
+    }).catch(() => ({ results: [] })),
+    tmdb(apiKey, '/tv/airing_today', { page: '1' }).catch(() => ({ results: [] })),
+    tmdb(apiKey, '/discover/tv', {
+      'air_date.gte': yesterdayStr,
+      'air_date.lte': todayStr,
+      sort_by: 'popularity.desc',
+      include_adult: 'false',
+      page: '1'
+    }).catch(() => ({ results: [] }))
+  ]);
+
+  const withPosterFirst = list => [
+    ...list.filter(item => item && item.poster_path),
+    ...list.filter(item => item && !item.poster_path)
+  ];
+
+  const movieList = withPosterFirst([
+    ...(primaryMovies.results || []),
+    ...(regionalMovies.results || [])
+  ]).map(m => ({ ...m, _mediaType: 'movie' }));
+
+  const tvList = withPosterFirst([
+    ...(newTv.results || []),
+    ...(airingTodayTv.results || []),
+    ...(airDateTv.results || [])
+  ]).map(m => ({ ...m, _mediaType: 'tv' }));
+
+  return interleaveUnique(movieList, tvList)
+    .slice(0, 20)
+    .map(m => ({ ...mapTmdbItem(m, m._mediaType, genreNames), isRecent24h: true }));
+}
+
 async function tmdb(apiKey, pathname, params = {}) {
   if (!apiKey) throw new Error('TMDB_API_KEY is missing');
   const cleanKey = apiKey.trim();
@@ -134,6 +232,7 @@ module.exports = async function handler(req, res) {
       const sort = url.searchParams.get('sort') || 'featured';
       const region = (url.searchParams.get('region') || 'US').toUpperCase();
       const availability = url.searchParams.get('availability') || 'all';
+      const recent = url.searchParams.get('recent') || '';
 
       const [movieGenresRes, tvGenresRes] = await Promise.all([
         tmdb(apiKey, '/genre/movie/list').catch(() => ({ genres: [] })),
@@ -144,31 +243,36 @@ module.exports = async function handler(req, res) {
         ...Object.fromEntries((tvGenresRes.genres || []).map(g => [g.id, g.name]))
       };
 
+      if (recent === '24h') {
+        const recentResults = await fetchRecent24h(apiKey, genreNames, region);
+        res.setHeader('Cache-Control', 'no-store');
+        return send(res, 200, {
+          results: recentResults,
+          recentResults,
+          page: 1,
+          totalPages: 1,
+          total: recentResults.length
+        });
+      }
+
       let sourceResults = [];
+      let recentResults = [];
       let totalPages = 1;
       let totalResults = 0;
       let currentPageNum = page;
 
       if (mediaType === 'all' && !search && !genre && !year && availability === 'all' && sort === 'featured') {
-        const [trendMovies, trendTv, nowPlaying, onAir] = await Promise.all([
+        const [trendMovies, trendTv, nowPlaying, onAir, recent24h] = await Promise.all([
           tmdb(apiKey, '/trending/movie/day', { page: String(page) }).catch(() => ({ results: [] })),
           tmdb(apiKey, '/trending/tv/day', { page: String(page) }).catch(() => ({ results: [] })),
           tmdb(apiKey, '/movie/now_playing', { page: String(page), region }).catch(() => ({ results: [] })),
-          tmdb(apiKey, '/tv/on_the_air', { page: String(page) }).catch(() => ({ results: [] }))
+          tmdb(apiKey, '/tv/on_the_air', { page: String(page) }).catch(() => ({ results: [] })),
+          page === 1 ? fetchRecent24h(apiKey, genreNames, region).catch(() => []) : Promise.resolve([])
         ]);
         const movieList = [...(nowPlaying.results || []), ...(trendMovies.results || [])].map(m => ({ ...m, _mediaType: 'movie' }));
         const tvList = [...(onAir.results || []), ...(trendTv.results || [])].map(m => ({ ...m, _mediaType: 'tv' }));
-        const seen = new Set();
-        const maxLen = Math.max(movieList.length, tvList.length);
-        for (let i = 0; i < maxLen; i++) {
-          for (const candidate of [movieList[i], tvList[i]]) {
-            if (!candidate || !candidate.id) continue;
-            const key = `${candidate._mediaType}-${candidate.id}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
-            sourceResults.push(candidate);
-          }
-        }
+        sourceResults = interleaveUnique(movieList, tvList);
+        recentResults = recent24h;
         totalPages = Math.max(trendMovies.total_pages || 1, trendTv.total_pages || 1);
         totalResults = (trendMovies.total_results || 0) + (trendTv.total_results || 0);
       } else {
@@ -231,29 +335,13 @@ module.exports = async function handler(req, res) {
 
       const results = sourceResults.map(m => {
         const itemType = m._mediaType || (search ? (m.media_type === 'tv' ? 'tv' : 'movie') : (mediaType === 'all' ? 'movie' : mediaType));
-        return {
-          id: `tmdb-${itemType}-${m.id}`,
-          tmdbId: m.id,
-          mediaType: itemType,
-          title: m.title || m.name || m.original_title || m.original_name || 'Untitled',
-          year: Number((m.release_date || m.first_air_date || '').slice(0, 4)) || 0,
-          genre: (m.genre_ids || []).map(id => genreNames[id]).filter(Boolean).join(', ') || (itemType === 'tv' ? 'TV Series' : 'Movie'),
-          genres: (m.genre_ids || []).map(id => genreNames[id]).filter(Boolean),
-          rating: Number(m.vote_average) || 0,
-          duration: '',
-          poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
-          backdrop: m.backdrop_path ? `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` : '',
-          description: m.overview || 'No synopsis is available.',
-          videoUrl: '',
-          source: 'TMDB',
-          voteCount: m.vote_count || 0,
-          originalLanguage: m.original_language || ''
-        };
+        return mapTmdbItem(m, itemType, genreNames);
       });
 
       res.setHeader('Cache-Control', 'no-store');
       return send(res, 200, {
         results,
+        recentResults,
         page: currentPageNum,
         totalPages,
         total: totalResults || results.length
