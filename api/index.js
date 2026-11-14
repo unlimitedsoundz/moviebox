@@ -126,7 +126,8 @@ module.exports = async function handler(req, res) {
       }
 
       const search = url.searchParams.get('query')?.trim();
-      const mediaType = url.searchParams.get('type') === 'tv' ? 'tv' : 'movie';
+      const rawType = url.searchParams.get('type');
+      const mediaType = rawType === 'tv' ? 'tv' : rawType === 'all' ? 'all' : 'movie';
       const page = Math.max(1, Math.min(500, Number(url.searchParams.get('page')) || 1));
       const genre = url.searchParams.get('genre') || '';
       const year = url.searchParams.get('year') || '';
@@ -142,60 +143,94 @@ module.exports = async function handler(req, res) {
         ...Object.fromEntries((movieGenresRes.genres || []).map(g => [g.id, g.name])),
         ...Object.fromEntries((tvGenresRes.genres || []).map(g => [g.id, g.name]))
       };
-      let endpoint = `/trending/${mediaType}/day`;
-      const params = { page: String(page) };
 
-      if (search) {
-        endpoint = '/search/multi';
-        params.query = search;
-        params.include_adult = 'false';
-      } else if (genre || year || availability !== 'all' || ['rating', 'newest', 'az'].includes(sort)) {
-        endpoint = `/discover/${mediaType}`;
-        params.watch_region = region;
-        if (availability !== 'all') params.with_watch_monetization_types = availability;
-        if (genre) {
-          const activeGenresList = mediaType === 'tv' ? (tvGenresRes.genres || []) : (movieGenresRes.genres || []);
-          const match = activeGenresList.find(g => g.name.toLowerCase() === genre.toLowerCase());
-          if (match) params.with_genres = String(match.id);
-        }
-        if (/^\d{4}$/.test(year)) params[mediaType === 'tv' ? 'first_air_date_year' : 'primary_release_year'] = year;
-        if (sort === 'rating') { params.sort_by = 'vote_average.desc'; params['vote_count.gte'] = '100'; }
-        else if (sort === 'newest') {
-          params.sort_by = mediaType === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc';
-          const today = new Date().toISOString().slice(0, 10);
-          if (mediaType === 'tv') {
-            params['first_air_date.lte'] = today;
-          } else {
-            params['primary_release_date.lte'] = today;
+      let sourceResults = [];
+      let totalPages = 1;
+      let totalResults = 0;
+      let currentPageNum = page;
+
+      if (mediaType === 'all' && !search && !genre && !year && availability === 'all' && sort === 'featured') {
+        const [trendMovies, trendTv, nowPlaying, onAir] = await Promise.all([
+          tmdb(apiKey, '/trending/movie/day', { page: String(page) }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/trending/tv/day', { page: String(page) }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/movie/now_playing', { page: String(page), region }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/tv/on_the_air', { page: String(page) }).catch(() => ({ results: [] }))
+        ]);
+        const movieList = [...(nowPlaying.results || []), ...(trendMovies.results || [])].map(m => ({ ...m, _mediaType: 'movie' }));
+        const tvList = [...(onAir.results || []), ...(trendTv.results || [])].map(m => ({ ...m, _mediaType: 'tv' }));
+        const seen = new Set();
+        const maxLen = Math.max(movieList.length, tvList.length);
+        for (let i = 0; i < maxLen; i++) {
+          for (const candidate of [movieList[i], tvList[i]]) {
+            if (!candidate || !candidate.id) continue;
+            const key = `${candidate._mediaType}-${candidate.id}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            sourceResults.push(candidate);
           }
-          params['vote_count.gte'] = '5';
         }
-        else if (sort === 'az') params.sort_by = mediaType === 'tv' ? 'original_name.asc' : 'original_title.asc';
-        else params.sort_by = 'popularity.desc';
-      }
+        totalPages = Math.max(trendMovies.total_pages || 1, trendTv.total_pages || 1);
+        totalResults = (trendMovies.total_results || 0) + (trendTv.total_results || 0);
+      } else {
+        const effectiveType = mediaType === 'all' ? 'movie' : mediaType;
+        let endpoint = `/trending/${effectiveType}/day`;
+        const params = { page: String(page) };
 
-      const resultPage = await tmdb(apiKey, endpoint, params);
-      let sourceResults = (resultPage.results || []).filter(item => {
         if (search) {
-          return item.media_type === 'movie' || item.media_type === 'tv' || (!item.media_type && (item.title || item.name));
+          endpoint = '/search/multi';
+          params.query = search;
+          params.include_adult = 'false';
+        } else if (genre || year || availability !== 'all' || ['rating', 'newest', 'az'].includes(sort)) {
+          endpoint = `/discover/${effectiveType}`;
+          params.watch_region = region;
+          if (availability !== 'all') params.with_watch_monetization_types = availability;
+          if (genre) {
+            const activeGenresList = effectiveType === 'tv' ? (tvGenresRes.genres || []) : (movieGenresRes.genres || []);
+            const match = activeGenresList.find(g => g.name.toLowerCase() === genre.toLowerCase());
+            if (match) params.with_genres = String(match.id);
+          }
+          if (/^\d{4}$/.test(year)) params[effectiveType === 'tv' ? 'first_air_date_year' : 'primary_release_year'] = year;
+          if (sort === 'rating') { params.sort_by = 'vote_average.desc'; params['vote_count.gte'] = '100'; }
+          else if (sort === 'newest') {
+            params.sort_by = effectiveType === 'tv' ? 'first_air_date.desc' : 'primary_release_date.desc';
+            const today = new Date().toISOString().slice(0, 10);
+            if (effectiveType === 'tv') {
+              params['first_air_date.lte'] = today;
+            } else {
+              params['primary_release_date.lte'] = today;
+            }
+            params['vote_count.gte'] = '5';
+          }
+          else if (sort === 'az') params.sort_by = effectiveType === 'tv' ? 'original_name.asc' : 'original_title.asc';
+          else params.sort_by = 'popularity.desc';
         }
-        return true;
-      });
-      if (search && availability !== 'all' && sourceResults.length) {
-        sourceResults = await Promise.all(sourceResults.map(async item => {
-          try {
-            const itemType = item.media_type === 'tv' ? 'tv' : 'movie';
-            const providerData = await tmdb(apiKey, `/${itemType}/${item.id}/watch/providers`);
-            const regionData = providerData.results?.[region];
-            const allowed = availability.split('|').some(group => regionData?.[group]?.length);
-            return allowed ? item : null;
-          } catch { return null; }
-        }));
-        sourceResults = sourceResults.filter(Boolean);
+
+        const resultPage = await tmdb(apiKey, endpoint, params);
+        sourceResults = (resultPage.results || []).filter(item => {
+          if (search) {
+            return item.media_type === 'movie' || item.media_type === 'tv' || (!item.media_type && (item.title || item.name));
+          }
+          return true;
+        });
+        if (search && availability !== 'all' && sourceResults.length) {
+          sourceResults = await Promise.all(sourceResults.map(async item => {
+            try {
+              const itemType = item.media_type === 'tv' ? 'tv' : 'movie';
+              const providerData = await tmdb(apiKey, `/${itemType}/${item.id}/watch/providers`);
+              const regionData = providerData.results?.[region];
+              const allowed = availability.split('|').some(group => regionData?.[group]?.length);
+              return allowed ? item : null;
+            } catch { return null; }
+          }));
+          sourceResults = sourceResults.filter(Boolean);
+        }
+        currentPageNum = resultPage.page || page;
+        totalPages = resultPage.total_pages || 1;
+        totalResults = resultPage.total_results || sourceResults.length;
       }
 
       const results = sourceResults.map(m => {
-        const itemType = search ? (m.media_type === 'tv' ? 'tv' : 'movie') : mediaType;
+        const itemType = m._mediaType || (search ? (m.media_type === 'tv' ? 'tv' : 'movie') : (mediaType === 'all' ? 'movie' : mediaType));
         return {
           id: `tmdb-${itemType}-${m.id}`,
           tmdbId: m.id,
@@ -216,11 +251,12 @@ module.exports = async function handler(req, res) {
         };
       });
 
+      res.setHeader('Cache-Control', 'no-store');
       return send(res, 200, {
         results,
-        page: resultPage.page || page,
-        totalPages: resultPage.total_pages || 1,
-        total: resultPage.total_results || results.length
+        page: currentPageNum,
+        totalPages,
+        total: totalResults || results.length
       });
     }
 
