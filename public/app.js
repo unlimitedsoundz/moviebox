@@ -85,7 +85,11 @@ window.addEventListener('beforeunload',e=>{
 
 window.addEventListener('blur',()=>{
   if(isPlayerActive()&&adBlockerActive){
-    setTimeout(()=>{try{window.focus()}catch{}},50);
+    setTimeout(()=>{
+      // Never steal focus when the user is interacting inside the video player iframe.
+      if(document.activeElement===$('#stream-player'))return;
+      try{window.focus()}catch{}
+    },50);
   }
 });
 
