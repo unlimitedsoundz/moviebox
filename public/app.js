@@ -109,10 +109,7 @@ window.addEventListener('blur',()=>{
 function applyAdBlockerSandbox(){
   const frame=$('#stream-player');
   if(!frame)return;
-  if(adBlockerActive){
-    // Block popup windows and top-level redirects from cross-origin embeds (critical for TV browsers).
-    frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-presentation');
-  }else if(frame.hasAttribute('sandbox')){
+  if(frame.hasAttribute('sandbox')){
     frame.removeAttribute('sandbox');
   }
 }
