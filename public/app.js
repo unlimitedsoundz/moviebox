@@ -34,8 +34,9 @@ function closeDialogs(){ $$('dialog[open]').forEach(d=>d.close());document.body.
 
 let adBlockerActive=localStorage.getItem('moviebox-adblock')!=='false';
 let blockedRedirectsCount=parseInt(localStorage.getItem('moviebox-adblock-count')||'0',10);
+const STREAM_SERVERS={vidfast:'VidFast',vidlink:'VidLink',cinesrc:'CineSrc'};
 let currentStreamServer=localStorage.getItem('moviebox-stream-server');
-if(currentStreamServer!=='cinesrc'&&currentStreamServer!=='vidlink')currentStreamServer='vidlink';
+if(!STREAM_SERVERS[currentStreamServer])currentStreamServer='vidfast';
 let lastAdblockToast=0, currentSeason=1, currentEpisode=1;
 
 function recordBlockedAd(reason='redirect'){
@@ -108,7 +109,10 @@ window.addEventListener('blur',()=>{
 function applyAdBlockerSandbox(){
   const frame=$('#stream-player');
   if(!frame)return;
-  if(frame.hasAttribute('sandbox')){
+  if(adBlockerActive){
+    // Block popup windows and top-level redirects from cross-origin embeds (critical for TV browsers).
+    frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-presentation');
+  }else if(frame.hasAttribute('sandbox')){
     frame.removeAttribute('sandbox');
   }
 }
@@ -191,17 +195,26 @@ function getStreamUrl(server,type,tmdbId,startAt=0,season=1,episode=1){
   const s = season || 1;
   const e = episode || 1;
   const resumeSec = Math.floor(Number(startAt) || 0);
-  const chosen = (server === 'cinesrc' || server === 'cinesrc-st') ? 'cinesrc' : 'vidlink';
+  const id = encodeURIComponent(tmdbId);
+  const chosen = (server === 'cinesrc' || server === 'cinesrc-st')
+    ? 'cinesrc'
+    : (STREAM_SERVERS[server] ? server : 'vidfast');
   if(chosen === 'cinesrc'){
     const base = isTV
-      ? `https://cinesrc.st/embed/tv/${encodeURIComponent(tmdbId)}?s=${s}&e=${e}`
-      : `https://cinesrc.st/embed/movie/${encodeURIComponent(tmdbId)}`;
+      ? `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}`
+      : `https://cinesrc.st/embed/movie/${id}`;
     return resumeSec > 5 ? `${base}${isTV ? '&' : '?'}t=${resumeSec}` : base;
   }
+  if(chosen === 'vidlink'){
+    const base = isTV
+      ? `https://vidlink.pro/tv/${id}/${s}/${e}?primaryColor=e5a00d&secondaryColor=11141b`
+      : `https://vidlink.pro/movie/${id}?primaryColor=e5a00d&secondaryColor=11141b`;
+    return resumeSec > 5 ? `${base}&startAt=${resumeSec}&autoplay=true` : base;
+  }
   const base = isTV
-    ? `https://vidlink.pro/tv/${encodeURIComponent(tmdbId)}/${s}/${e}?primaryColor=e5a00d&secondaryColor=11141b`
-    : `https://vidlink.pro/movie/${encodeURIComponent(tmdbId)}?primaryColor=e5a00d&secondaryColor=11141b`;
-  return resumeSec > 5 ? `${base}&startAt=${resumeSec}&autoplay=true` : base;
+    ? `https://vidfast.vc/tv/${id}/${s}/${e}?autoPlay=true`
+    : `https://vidfast.vc/movie/${id}?autoPlay=true`;
+  return resumeSec > 5 ? `${base}&startAt=${resumeSec}` : base;
 }
 function getUniqueMovies(items){const seen=new Set();return(items||[]).filter(m=>{if(!m)return false;const key=(m.tmdbId?`${m.mediaType||'movie'}-${m.tmdbId}`:m.id)||(m.title&&m.year?`${m.title.toLowerCase()}-${m.year}`:m.title);if(seen.has(key))return false;seen.add(key);return true})}
 function shuffleArray(items){const arr=[...(items||[])];for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]]}return arr}
@@ -402,6 +415,8 @@ function openDetailPage(movie,{autoplay=false,skipPush=false}={}){
           movie.numberOfSeasons=d.number_of_seasons||(d.seasons?.filter(s=>s.season_number>0).length)||1;
           movie.numberOfEpisodes=d.number_of_episodes||24;
           movie.seasons=d.seasons||[];
+          movie.lastEpisodeToAir=d.last_episode_to_air||null;
+          movie.nextEpisodeToAir=d.next_episode_to_air||null;
         }
         movie.duration=isTV?`${d.number_of_seasons||1} seasons · ${d.number_of_episodes||0} episodes`:d.runtime?`${Math.floor(d.runtime/60)}h ${d.runtime%60}m`:'';
         movie.genres=(d.genres||[]).map(g=>g.name);
@@ -431,13 +446,11 @@ function openDetailPage(movie,{autoplay=false,skipPush=false}={}){
 }
 let lastProgressSave=0;
 function getAvailableSeasons(movie){
-  const today=new Date().toISOString().slice(0,10);
   const lastEp=movie.lastEpisodeToAir;
   let seasonList=(movie.seasons||[]).filter(s=>{
     if(!s||s.season_number<=0)return false;
-    if(lastEp&&s.season_number>lastEp.season_number)return false;
-    if(s.air_date&&s.air_date>today)return false;
     if(s.episode_count===0)return false;
+    if(lastEp&&s.season_number>lastEp.season_number)return false;
     return true;
   });
   if(!seasonList.length){
@@ -454,8 +467,12 @@ function getAvailableEpisodes(movie,seasonNum){
   if(Array.isArray(cached)&&cached.length){
     const aired=cached.filter(ep=>{
       if(!ep||ep.episode_number<=0)return false;
+      if(lastEp){
+        if(Number(seasonNum)<Number(lastEp.season_number))return true;
+        if(Number(seasonNum)===Number(lastEp.season_number))return ep.episode_number<=lastEp.episode_number;
+        return false;
+      }
       if(ep.air_date)return ep.air_date<=today;
-      if(lastEp)return seasonNum<lastEp.season_number||(seasonNum===lastEp.season_number&&ep.episode_number<=lastEp.episode_number);
       return true;
     });
     if(aired.length)return aired.map(ep=>({number:Number(ep.episode_number),name:ep.name||''})).sort((a,b)=>a.number-b.number);
@@ -606,7 +623,7 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false}={}){
     if(resumeTime>10){
       notify(isTV?`Resuming S${currentSeason} E${currentEpisode} from ${formatTimestamp(resumeTime)}`:`Resuming from ${formatTimestamp(resumeTime)}`);
     }
-    const serverName=$('#server-select')?.selectedOptions[0]?.textContent||(currentStreamServer==='vidlink'?'VidLink':'CineSrc');
+    const serverName=$('#server-select')?.selectedOptions[0]?.textContent||(STREAM_SERVERS[currentStreamServer]||'VidFast');
     $('#player-label').textContent=adBlockerActive?`${serverName.toUpperCase()} · SHIELD ACTIVE`:`${serverName.toUpperCase()} PLAYER`;
     $('#quality-select').innerHTML='<option value="auto">Player controls</option>';
     $('#subtitle-select').innerHTML='<option value="off">Player controls</option>';
@@ -719,7 +736,7 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
 $('#player-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));
 $('#top-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));
 $('#adblock-setting-toggle')?.addEventListener('change',e=>setAdBlocker(e.target.checked));
-$('#server-select')?.addEventListener('change',e=>{currentStreamServer=e.target.value==='cinesrc'?'cinesrc':'vidlink';localStorage.setItem('moviebox-stream-server',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||(currentStreamServer==='vidlink'?'VidLink':'CineSrc')}`);playMovie(activeMovie)}});
+$('#server-select')?.addEventListener('change',e=>{currentStreamServer=STREAM_SERVERS[e.target.value]?e.target.value:'vidfast';localStorage.setItem('moviebox-stream-server',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||STREAM_SERVERS[currentStreamServer]}`);playMovie(activeMovie)}});
 $('#player-reload')?.addEventListener('click',()=>{if(activeMovie&&isPlayerActive()){notify('↻ Reloading stream with Ad Shield active…');playMovie(activeMovie)}});
 document.addEventListener('keydown',e=>{if(e.key==='/'&&!e.metaKey&&!e.ctrlKey&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();openSearch()}if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&isPlayerActive()&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();toggleFullscreen()}});
 applyAdBlockerSandbox();
