@@ -386,7 +386,13 @@ function openDetailPage(movie,{autoplay=false,skipPush=false}={}){
   const play=$('#detail-play');
   play.disabled=!canPlay;
   play.innerHTML=canPlay?`<span class="play-triangle">${SVG_PLAY}</span> Play`:'No stream linked';
-  play.onclick=()=>{if(canPlay)playMovie(movie)};
+  play.onclick=()=>{
+    if(canPlay){
+      const s=isTV?(progress[movie.id]?.season||detailSelectedSeason||1):1;
+      const e=isTV?(progress[movie.id]?.episode||1):1;
+      playMovie(movie,{season:s,episode:e});
+    }
+  };
   const saveBtn=$('#detail-save');
   saveBtn.innerHTML=saved.has(movie.id)?`${SVG_HEART} In my list`:`${SVG_PLUS} My list`;
   saveBtn.onclick=()=>{
@@ -400,6 +406,13 @@ function openDetailPage(movie,{autoplay=false,skipPush=false}={}){
   $('#provider-note').textContent='Checking free availability…';
   $('#provider-links').innerHTML='';
   switchView('detail');
+  if(isTV){
+    detailSelectedSeason=Number(progress[movie.id]?.season)||1;
+    renderDetailSeasons(movie);
+  }else{
+    const sSec=$('#detail-seasons-section');
+    if(sSec)sSec.hidden=true;
+  }
   if(autoplay&&canPlay){
     playMovie(movie);
   }
@@ -418,6 +431,7 @@ function openDetailPage(movie,{autoplay=false,skipPush=false}={}){
           movie.seasons=d.seasons||[];
           movie.lastEpisodeToAir=d.last_episode_to_air||null;
           movie.nextEpisodeToAir=d.next_episode_to_air||null;
+          renderDetailSeasons(movie);
         }
         movie.duration=isTV?`${d.number_of_seasons||1} seasons · ${d.number_of_episodes||0} episodes`:d.runtime?`${Math.floor(d.runtime/60)}h ${d.runtime%60}m`:'';
         movie.genres=(d.genres||[]).map(g=>g.name);
@@ -446,62 +460,265 @@ function openDetailPage(movie,{autoplay=false,skipPush=false}={}){
   }
 }
 let lastProgressSave=0;
+let detailSelectedSeason=1;
+
 function getAvailableSeasons(movie){
-  const lastEp=movie.lastEpisodeToAir;
-  let seasonList=(movie.seasons||[]).filter(s=>{
-    if(!s||s.season_number<=0)return false;
-    if(s.episode_count===0)return false;
-    if(lastEp&&s.season_number>lastEp.season_number)return false;
-    return true;
-  });
-  if(!seasonList.length){
-    const maxS=lastEp?.season_number||movie.numberOfSeasons||1;
-    for(let s=1;s<=maxS;s++)seasonList.push({season_number:s,name:`Season ${s}`,episode_count:24});
+  if(!movie)return [];
+  const seasonsMap=new Map();
+  if(Array.isArray(movie.seasons)){
+    for(const s of movie.seasons){
+      if(!s)continue;
+      const sNum=Number(s.season_number);
+      if(sNum>0){
+        seasonsMap.set(sNum,{
+          season_number:sNum,
+          name:s.name||`Season ${sNum}`,
+          episode_count:Number(s.episode_count)||0,
+          poster_path:s.poster_path?`https://image.tmdb.org/t/p/w300${s.poster_path}`:'',
+          overview:s.overview||'',
+          air_date:s.air_date||''
+        });
+      }
+    }
   }
-  return seasonList.sort((a,b)=>Number(a.season_number)-Number(b.season_number));
+  const totalSeasons=Math.max(
+    Number(movie.numberOfSeasons)||1,
+    seasonsMap.size,
+    ...(seasonsMap.size?Array.from(seasonsMap.keys()):[1])
+  );
+  for(let s=1;s<=totalSeasons;s++){
+    if(!seasonsMap.has(s)){
+      seasonsMap.set(s,{
+        season_number:s,
+        name:`Season ${s}`,
+        episode_count:24,
+        poster_path:'',
+        overview:'',
+        air_date:''
+      });
+    }
+  }
+  return Array.from(seasonsMap.values()).sort((a,b)=>a.season_number-b.season_number);
 }
 
 function getAvailableEpisodes(movie,seasonNum){
-  const today=new Date().toISOString().slice(0,10);
-  const lastEp=movie.lastEpisodeToAir;
-  const cached=movie.seasonEpisodes?.[seasonNum];
+  const sNum=Number(seasonNum)||1;
+  const cached=movie.seasonEpisodes?.[sNum];
   if(Array.isArray(cached)&&cached.length){
-    const aired=cached.filter(ep=>{
-      if(!ep||ep.episode_number<=0)return false;
-      if(lastEp){
-        if(Number(seasonNum)<Number(lastEp.season_number))return true;
-        if(Number(seasonNum)===Number(lastEp.season_number))return ep.episode_number<=lastEp.episode_number;
-        return false;
-      }
-      if(ep.air_date)return ep.air_date<=today;
-      return true;
-    });
-    if(aired.length)return aired.map(ep=>({number:Number(ep.episode_number),name:ep.name||''})).sort((a,b)=>a.number-b.number);
+    const list=cached
+      .filter(ep=>ep&&ep.episode_number>0)
+      .map(ep=>({
+        number:Number(ep.episode_number),
+        name:ep.name||`Episode ${ep.episode_number}`,
+        overview:ep.overview||'',
+        still:ep.still_path?`https://image.tmdb.org/t/p/w500${ep.still_path}`:'',
+        air_date:ep.air_date||'',
+        vote_average:Number(ep.vote_average)||0,
+        runtime:Number(ep.runtime)||0
+      }))
+      .sort((a,b)=>a.number-b.number);
+    if(list.length)return list;
   }
-  const sData=getAvailableSeasons(movie).find(s=>Number(s.season_number)===Number(seasonNum));
-  let epMax=sData?.episode_count||(movie.numberOfEpisodes&&movie.numberOfEpisodes<=24?movie.numberOfEpisodes:24);
-  if(lastEp){
-    if(Number(seasonNum)===Number(lastEp.season_number))epMax=Math.min(epMax,Number(lastEp.episode_number)||epMax);
-    else if(Number(seasonNum)>Number(lastEp.season_number))epMax=0;
-  }
+  const sData=getAvailableSeasons(movie).find(s=>Number(s.season_number)===sNum);
+  const epMax=Number(sData?.episode_count)>0?Number(sData.episode_count):24;
   const list=[];
-  for(let e=1;e<=Math.max(1,epMax);e++)list.push({number:e,name:''});
+  for(let e=1;e<=epMax;e++){
+    list.push({
+      number:e,
+      name:`Episode ${e}`,
+      overview:'',
+      still:'',
+      air_date:'',
+      vote_average:0,
+      runtime:0
+    });
+  }
   return list;
 }
 
-function playMovie(movie,{preserveEpisode=false,resetTime=false}={}){
+async function fetchSeasonEpisodes(movie,seasonNum){
+  if(!movie||!movie.tmdbId)return [];
+  const sNum=Number(seasonNum)||1;
+  movie.seasonEpisodes=movie.seasonEpisodes||{};
+  if(Array.isArray(movie.seasonEpisodes[sNum])&&movie.seasonEpisodes[sNum].length){
+    return movie.seasonEpisodes[sNum];
+  }
+  try{
+    let r=await fetch(`/api/title/tv/${movie.tmdbId}/season/${sNum}`);
+    if(!r.ok)r=await fetch(`/api/title?type=tv&id=${movie.tmdbId}&season=${sNum}`);
+    if(!r.ok)return [];
+    const sd=await r.json();
+    if(sd&&Array.isArray(sd.episodes)){
+      movie.seasonEpisodes[sNum]=sd.episodes;
+      return sd.episodes;
+    }
+  }catch(err){
+    console.warn('Failed to load season episodes',err);
+  }
+  return [];
+}
+
+async function renderDetailSeasons(movie){
+  const section=$('#detail-seasons-section');
+  if(!section)return;
+  const isTV=Boolean(
+    movie.mediaType==='tv'||
+    String(movie.id).includes('tmdb-tv-')||
+    (movie.seasons&&movie.seasons.length>0)||(movie.numberOfSeasons&&movie.numberOfSeasons>0)
+  );
+  if(!isTV){
+    section.hidden=true;
+    return;
+  }
+  section.hidden=false;
+  const seasons=getAvailableSeasons(movie);
+  if(!seasons.length){
+    section.hidden=true;
+    return;
+  }
+  if(!seasons.some(s=>s.season_number===detailSelectedSeason)){
+    detailSelectedSeason=seasons[0].season_number;
+  }
+
+  const badge=$('#seasons-badge');
+  if(badge){
+    const totalS=seasons.length;
+    badge.textContent=`${totalS} ${totalS===1?'Season':'Seasons'}`;
+  }
+
+  const select=$('#detail-season-select');
+  if(select){
+    select.innerHTML=seasons.map(s=>{
+      const epCount=Number(s.episode_count)>0?` (${s.episode_count} eps)`:'';
+      return `<option value="${s.season_number}" ${s.season_number===detailSelectedSeason?'selected':''}>${s.name||`Season ${s.season_number}`}${epCount}</option>`;
+    }).join('');
+    select.value=String(detailSelectedSeason);
+    select.onchange=()=>{
+      selectDetailSeason(Number(select.value)||1);
+    };
+  }
+
+  const pillsContainer=$('#seasons-pills');
+  if(pillsContainer){
+    pillsContainer.innerHTML=seasons.map(s=>{
+      const active=s.season_number===detailSelectedSeason?'active':'';
+      return `<button type="button" class="season-pill ${active}" data-season="${s.season_number}" role="tab" aria-selected="${s.season_number===detailSelectedSeason}">${s.name||`Season ${s.season_number}`}</button>`;
+    }).join('');
+    pillsContainer.querySelectorAll('.season-pill').forEach(btn=>{
+      btn.onclick=()=>{
+        const sNum=Number(btn.dataset.season)||1;
+        selectDetailSeason(sNum);
+      };
+    });
+  }
+
+  await renderSeasonEpisodes(movie,detailSelectedSeason);
+}
+
+function selectDetailSeason(sNum){
+  detailSelectedSeason=sNum;
+  if($('#detail-season-select'))$('#detail-season-select').value=String(sNum);
+  $$('#seasons-pills .season-pill').forEach(p=>{
+    const isAct=Number(p.dataset.season)===sNum;
+    p.classList.toggle('active',isAct);
+    p.setAttribute('aria-selected',isAct?'true':'false');
+  });
+  if(activeMovie){
+    renderSeasonEpisodes(activeMovie,sNum);
+  }
+}
+
+async function renderSeasonEpisodes(movie,seasonNum){
+  const grid=$('#episodes-grid');
+  if(!grid||activeMovie?.id!==movie.id)return;
+
+  const currentEps=getAvailableEpisodes(movie,seasonNum);
+  const drawList=(eps)=>{
+    if(activeMovie?.id!==movie.id)return;
+    const isPlayingThisTitle=isPlayerActive()&&activeMovie?.id===movie.id;
+    const currentPlayingS=currentSeason;
+    const currentPlayingE=currentEpisode;
+
+    grid.innerHTML=eps.map(ep=>{
+      const isCur=isPlayingThisTitle&&currentPlayingS===seasonNum&&currentPlayingE===ep.number;
+      const thumb=ep.still||movie.backdrop||movie.poster||'';
+      const fallbackInitial=movie.title?movie.title.charAt(0):'E';
+      return `
+        <article class="episode-card ${isCur?'playing':''}" data-season="${seasonNum}" data-episode="${ep.number}" role="button" tabindex="0" aria-label="Play Season ${seasonNum} Episode ${ep.number}: ${ep.name}">
+          <div class="episode-thumb-wrap">
+            ${thumb?`<img class="episode-thumb" src="${thumb}" alt="${ep.name}" loading="lazy" />`:`<div class="episode-thumb-placeholder">${fallbackInitial}</div>`}
+            <div class="episode-play-overlay">
+              <span class="episode-play-btn">${SVG_PLAY}</span>
+            </div>
+            <span class="episode-badge">E${ep.number}</span>
+            ${isCur?`<span class="episode-live-badge"><span class="player-live-dot"></span> NOW PLAYING</span>`:''}
+          </div>
+          <div class="episode-info">
+            <div class="episode-title-row">
+              <h3 class="episode-title">${ep.number}. ${ep.name||`Episode ${ep.number}`}</h3>
+              ${ep.vote_average?`<span class="episode-rating">★ ${ep.vote_average.toFixed(1)}</span>`:''}
+            </div>
+            <div class="episode-meta">
+              ${ep.air_date?`<span>${ep.air_date}</span>`:''}
+              ${ep.runtime?`<span>${ep.runtime}m</span>`:''}
+            </div>
+            <p class="episode-overview">${ep.overview||'No episode description available.'}</p>
+          </div>
+        </article>
+      `;
+    }).join('');
+
+    grid.querySelectorAll('.episode-card').forEach(card=>{
+      const onPick=()=>{
+        const s=Number(card.dataset.season)||1;
+        const e=Number(card.dataset.episode)||1;
+        playMovie(movie,{season:s,episode:e,resetTime:true});
+        const stage=$('#player-stage');
+        if(stage)stage.scrollIntoView({behavior:'smooth',block:'start'});
+      };
+      card.onclick=onPick;
+      card.onkeydown=evt=>{
+        if(evt.key==='Enter'||evt.key===' '){
+          evt.preventDefault();
+          onPick();
+        }
+      };
+    });
+  };
+
+  drawList(currentEps);
+
+  if(!movie.seasonEpisodes?.[seasonNum]&&movie.source==='TMDB'&&movie.tmdbId){
+    const fetched=await fetchSeasonEpisodes(movie,seasonNum);
+    if(activeMovie?.id===movie.id&&detailSelectedSeason===seasonNum&&fetched.length){
+      drawList(getAvailableEpisodes(movie,seasonNum));
+      const sSel=$('#season-select'),eSel=$('#episode-select');
+      if(sSel&&Number(sSel.value)===seasonNum&&eSel){
+        const updatedEps=getAvailableEpisodes(movie,seasonNum);
+        eSel.innerHTML=updatedEps.map(ep=>`<option value="${ep.number}" ${ep.number===currentEpisode?'selected':''}>${ep.name?`E${ep.number} · ${ep.name}`:`Episode ${ep.number}`}</option>`).join('');
+        eSel.value=String(currentEpisode);
+      }
+    }
+  }
+}
+
+function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode}={}){
   const prevId=activeMovie?.id;
   activeMovie=movie;
   const video=$('#video-player'),frame=$('#stream-player'),embedded=movie.source==='TMDB'&&movie.tmdbId,isTV=Boolean((embedded&&(movie.mediaType==='tv'||String(movie.id).includes('tmdb-tv-')))||(movie.seasons&&movie.seasons.length>0)||(movie.numberOfSeasons&&movie.numberOfSeasons>0));
   if(isTV)movie.mediaType='tv';
   const savedProgress=progress[movie.id];
-  if(prevId!==movie.id){
+  if(season!==undefined&&episode!==undefined){
+    currentSeason=Number(season)||1;
+    currentEpisode=Number(episode)||1;
+  }else if(prevId!==movie.id){
     currentSeason=(isTV&&!preserveEpisode&&savedProgress?.season)?Number(savedProgress.season)||1:1;
     currentEpisode=(isTV&&!preserveEpisode&&savedProgress?.episode)?Number(savedProgress.episode)||1:1;
   }else if(isTV&&!preserveEpisode&&savedProgress?.season&&savedProgress?.episode){
     currentSeason=Number(savedProgress.season)||currentSeason;
     currentEpisode=Number(savedProgress.episode)||currentEpisode;
   }
+  detailSelectedSeason=currentSeason;
   const resumeTime=resetTime?0:(Number(savedProgress?.time)||0);
   progressItems[movie.id]=movie;
   const existingPct=savedProgress?.pct||0;
@@ -560,25 +777,21 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false}={}){
     const switchEpisode=(nextS,nextE)=>{
       currentSeason=Number(nextS)||1;
       currentEpisode=Number(nextE)||1;
+      detailSelectedSeason=currentSeason;
       progress[movie.id]={time:0,pct:5,season:currentSeason,episode:currentEpisode,updatedAt:Date.now()};
       persist();
       updateTvPickers();
       loadSeasonEpisodes(currentSeason);
+      renderDetailSeasons(movie);
       frame.src=getStreamUrl(currentStreamServer,'tv',movie.tmdbId,0,currentSeason,currentEpisode);
       notify(`Loaded Season ${currentSeason}, Episode ${currentEpisode}`);
     };
     const loadSeasonEpisodes=async(seasonNum)=>{
-      if(!isTV||movie.seasonEpisodes?.[seasonNum])return;
-      try{
-        let r=await fetch(`/api/title/tv/${movie.tmdbId}/season/${seasonNum}`);
-        if(!r.ok)r=await fetch(`/api/title?type=tv&id=${movie.tmdbId}&season=${seasonNum}`);
-        if(!r.ok)return;
-        const sd=await r.json();
-        if(!sd||!Array.isArray(sd.episodes)||activeMovie?.id!==movie.id)return;
-        movie.seasonEpisodes=movie.seasonEpisodes||{};
-        movie.seasonEpisodes[seasonNum]=sd.episodes;
+      if(!isTV)return;
+      await fetchSeasonEpisodes(movie,seasonNum);
+      if(activeMovie?.id===movie.id){
         updateTvPickers();
-      }catch{}
+      }
     };
     if(isTV){
       updateTvPickers();
@@ -617,7 +830,23 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false}={}){
         frame.src=getStreamUrl(currentStreamServer,'tv',movie.tmdbId,targetTime,currentSeason,currentEpisode);
         notify(`Skipped intro · Jumped to ${formatTimestamp(targetTime)}`);
       };
-      const loadTvDetails=async()=>{try{let r=await fetch(`/api/title/tv/${movie.tmdbId}`);if(!r.ok)r=await fetch(`/api/title?type=tv&id=${movie.tmdbId}`);if(!r.ok)return;const d=await r.json();if(!d||activeMovie?.id!==movie.id)return;movie.numberOfSeasons=d.number_of_seasons||(d.seasons?.filter(s=>s.season_number>0).length)||1;movie.numberOfEpisodes=d.number_of_episodes||24;movie.seasons=d.seasons||[];movie.lastEpisodeToAir=d.last_episode_to_air||null;movie.nextEpisodeToAir=d.next_episode_to_air||null;updateTvPickers();loadSeasonEpisodes(currentSeason)}catch{}};
+      const loadTvDetails=async()=>{
+        try{
+          let r=await fetch(`/api/title/tv/${movie.tmdbId}`);
+          if(!r.ok)r=await fetch(`/api/title?type=tv&id=${movie.tmdbId}`);
+          if(!r.ok)return;
+          const d=await r.json();
+          if(!d||activeMovie?.id!==movie.id)return;
+          movie.numberOfSeasons=d.number_of_seasons||(d.seasons?.filter(s=>s.season_number>0).length)||1;
+          movie.numberOfEpisodes=d.number_of_episodes||24;
+          movie.seasons=d.seasons||[];
+          movie.lastEpisodeToAir=d.last_episode_to_air||null;
+          movie.nextEpisodeToAir=d.next_episode_to_air||null;
+          updateTvPickers();
+          loadSeasonEpisodes(currentSeason);
+          renderDetailSeasons(movie);
+        }catch{}
+      };
       loadTvDetails();
     }
     frame.src=getStreamUrl(currentStreamServer,type,movie.tmdbId,resumeTime,currentSeason,currentEpisode);

@@ -2153,9 +2153,333 @@ footer small {
 .button:focus-visible,
 .player-action-button:focus-visible,
 .player-field select:focus-visible,
+.detail-season-select:focus-visible,
+.season-pill:focus-visible,
+.episode-card:focus-visible,
 .close-button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ==========================================================================
+   Detail Seasons & Episodes Section
+   ========================================================================== */
+
+.detail-seasons-section {
+  margin-top: 32px;
+  background: rgba(17, 20, 28, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: clamp(20px, 3vw, 32px);
+  position: relative;
+  z-index: 2;
+}
+
+.seasons-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.seasons-heading-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.seasons-title {
+  margin: 0;
+  font-family: "Manrope", sans-serif;
+  font-size: clamp(20px, 2.5vw, 26px);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.seasons-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cdd2dd;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.seasons-selector-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-season-select {
+  height: 38px;
+  background: #171b25;
+  border: 1px solid #2e3442;
+  border-radius: 8px;
+  color: #f1f1f3;
+  padding: 0 14px;
+  font: 600 13px "DM Sans", sans-serif;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.detail-season-select:hover,
+.detail-season-select:focus {
+  border-color: var(--accent);
+}
+
+/* Season Tabs/Pills */
+.seasons-pills {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 16px 0 20px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.seasons-pills::-webkit-scrollbar {
+  height: 6px;
+}
+
+.seasons-pills::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+}
+
+.season-pill {
+  flex-shrink: 0;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cdd2dd;
+  font: 600 13px "DM Sans", sans-serif;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.season-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.season-pill.active {
+  background: var(--accent);
+  color: #090b10;
+  border-color: var(--accent);
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(212, 255, 63, 0.25);
+}
+
+/* Episodes Grid */
+.episodes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+
+.episode-card {
+  display: flex;
+  flex-direction: column;
+  background: rgba(23, 27, 37, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  position: relative;
+  text-align: left;
+}
+
+.episode-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(212, 255, 63, 0.4);
+  background: rgba(23, 27, 37, 0.95);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+
+.episode-card.playing {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent), 0 8px 24px rgba(212, 255, 63, 0.2);
+}
+
+.episode-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #0d1017;
+  overflow: hidden;
+}
+
+.episode-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.episode-card:hover .episode-thumb {
+  transform: scale(1.04);
+}
+
+.episode-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, #171b25, #0d1017);
+}
+
+.episode-play-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(9, 11, 16, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.episode-card:hover .episode-play-overlay,
+.episode-card:focus-visible .episode-play-overlay {
+  opacity: 1;
+}
+
+.episode-play-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #090b10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  transform: scale(0.9);
+  transition: transform 0.2s ease;
+}
+
+.episode-play-btn svg {
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+}
+
+.episode-card:hover .episode-play-btn {
+  transform: scale(1.05);
+}
+
+.episode-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(9, 11, 16, 0.75);
+  backdrop-filter: blur(8px);
+  color: #f1f1f3;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.episode-live-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(212, 255, 63, 0.95);
+  color: #090b10;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+}
+
+.episode-info {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.episode-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.episode-title {
+  margin: 0;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: #f4f4f6;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.episode-rating {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffd154;
+}
+
+.episode-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.episode-overview {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #9aa1af;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 @media (max-width: 760px) {
@@ -2170,5 +2494,33 @@ footer small {
 
   .detail-poster-wrap {
     max-width: 190px;
+  }
+
+  .episodes-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .episode-card {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+  }
+
+  .episode-thumb-wrap {
+    height: 100%;
+    aspect-ratio: auto;
+  }
+
+  .episode-info {
+    padding: 10px 12px;
+  }
+
+  .episode-title {
+    font-size: 13.5px;
+  }
+
+  .episode-overview {
+    -webkit-line-clamp: 2;
+    font-size: 12px;
   }
 }
