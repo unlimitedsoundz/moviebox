@@ -12,7 +12,90 @@ if (fs.existsSync(envFile)) {
   } catch {}
 }
 
+const logoCache = new Map();
+const ageRatingCache = new Map();
+const RATING_REGION_PRIORITY = ['US', 'GB', 'CA', 'AU', 'NG', 'DE', 'FR'];
+
+function extractMovieCert(releaseDates) {
+  const list = Array.isArray(releaseDates?.results) ? releaseDates.results : [];
+  const pickFromCountry = entry => {
+    const rels = Array.isArray(entry?.release_dates) ? entry.release_dates : [];
+    const hit = rels.find(r => r && r.certification && String(r.certification).trim());
+    return hit ? String(hit.certification).trim() : '';
+  };
+  for (const code of RATING_REGION_PRIORITY) {
+    const entry = list.find(r => r && r.iso_3166_1 === code);
+    const cert = pickFromCountry(entry);
+    if (cert) return cert;
+  }
+  for (const entry of list) {
+    const cert = pickFromCountry(entry);
+    if (cert) return cert;
+  }
+  return '';
+}
+
+function extractTvRating(contentRatings) {
+  const list = Array.isArray(contentRatings?.results) ? contentRatings.results : [];
+  for (const code of RATING_REGION_PRIORITY) {
+    const entry = list.find(r => r && r.iso_3166_1 === code && r.rating && String(r.rating).trim());
+    if (entry) return String(entry.rating).trim();
+  }
+  const any = list.find(r => r && r.rating && String(r.rating).trim());
+  return any ? String(any.rating).trim() : '';
+}
+
+async function fetchAgeRating(apiKey, itemType, tmdbId) {
+  const key = `${itemType}-${tmdbId}`;
+  if (ageRatingCache.has(key)) return ageRatingCache.get(key);
+  try {
+    const endpoint = itemType === 'tv' ? `/tv/${tmdbId}/content_ratings` : `/movie/${tmdbId}/release_dates`;
+    const data = await tmdb(apiKey, endpoint, { language: '' });
+    const rating = itemType === 'tv' ? extractTvRating(data) : extractMovieCert(data);
+    ageRatingCache.set(key, rating || '');
+    return rating || '';
+  } catch {
+    return '';
+  }
+}
+
+async function fetchBestLogo(apiKey, itemType, tmdbId) {
+  const key = `${itemType}-${tmdbId}`;
+  if (logoCache.has(key)) return logoCache.get(key);
+  try {
+    const data = await tmdb(apiKey, `/${itemType}/${tmdbId}/images`, {
+      include_image_language: 'en,null'
+    });
+    const logos = Array.isArray(data?.logos) ? data.logos : [];
+    const usable = logos.filter(l => l && l.file_path && /\.(png|svg)$/i.test(l.file_path));
+    const pool = usable.length ? usable : logos.filter(l => l && l.file_path);
+    if (!pool.length) {
+      logoCache.set(key, '');
+      return '';
+    }
+    pool.sort((a, b) => {
+      const aEn = a.iso_639_1 === 'en' ? 1 : 0;
+      const bEn = b.iso_639_1 === 'en' ? 1 : 0;
+      if (aEn !== bEn) return bEn - aEn;
+      const aPng = /\.png$/i.test(a.file_path) ? 1 : 0;
+      const bPng = /\.png$/i.test(b.file_path) ? 1 : 0;
+      if (aPng !== bPng) return bPng - aPng;
+      const aWide = (a.aspect_ratio || 1) >= 1.2 ? 1 : 0;
+      const bWide = (b.aspect_ratio || 1) >= 1.2 ? 1 : 0;
+      if (aWide !== bWide) return bWide - aWide;
+      return (b.vote_count || 0) - (a.vote_count || 0) || (b.vote_average || 0) - (a.vote_average || 0);
+    });
+    const bestUrl = `https://image.tmdb.org/t/p/w500${pool[0].file_path}`;
+    logoCache.set(key, bestUrl);
+    return bestUrl;
+  } catch {
+    return '';
+  }
+}
+
 function mapTmdbItem(m, itemType, genreNames) {
+  const cachedLogo = logoCache.get(`${itemType}-${m.id}`) || '';
+  const cachedAgeRating = ageRatingCache.get(`${itemType}-${m.id}`) || '';
   return {
     id: `tmdb-${itemType}-${m.id}`,
     tmdbId: m.id,
@@ -23,9 +106,11 @@ function mapTmdbItem(m, itemType, genreNames) {
     genre: (m.genre_ids || []).map(id => genreNames[id]).filter(Boolean).join(', ') || (itemType === 'tv' ? 'TV Series' : 'Movie'),
     genres: (m.genre_ids || []).map(id => genreNames[id]).filter(Boolean),
     rating: Number(m.vote_average) || 0,
+    ageRating: cachedAgeRating,
     duration: '',
     poster: m.poster_path ? `https://image.tmdb.org/t/p/w500${m.poster_path}` : '',
     backdrop: m.backdrop_path ? `https://image.tmdb.org/t/p/w1280${m.backdrop_path}` : '',
+    logo: cachedLogo,
     description: m.overview || 'No synopsis is available.',
     videoUrl: '',
     source: 'TMDB',
@@ -115,6 +200,7 @@ async function tmdb(apiKey, pathname, params = {}) {
   const cleanKey = apiKey.trim();
   const headers = { 'Accept': 'application/json' };
   const queryParams = { language: 'en-US', ...params };
+  if (queryParams.language === '') delete queryParams.language;
 
   if (cleanKey.startsWith('eyJ') || cleanKey.length > 50) {
     headers['Authorization'] = `Bearer ${cleanKey}`;
@@ -211,6 +297,20 @@ module.exports = async function handler(req, res) {
       });
     }
 
+    if (routePath === '/api/logos') {
+      if (!apiKey) return send(res, 200, { logos: {} });
+      const rawItems = (url.searchParams.get('items') || '').split(',').map(s => s.trim()).filter(Boolean).slice(0, 30);
+      const logos = {};
+      await Promise.all(rawItems.map(async entry => {
+        const match = entry.match(/^(movie|tv):(\d+)$/);
+        if (!match) return;
+        const [, t, id] = match;
+        const logoUrl = await fetchBestLogo(apiKey, t, id);
+        if (logoUrl) logos[`tmdb-${t}-${id}`] = logoUrl;
+      }));
+      return send(res, 200, { logos });
+    }
+
     if (routePath === '/api/catalog') {
       if (!apiKey) {
         return send(res, 200, {
@@ -259,24 +359,160 @@ module.exports = async function handler(req, res) {
 
       let sourceResults = [];
       let recentResults = [];
+      let homeShelves = null;
       let totalPages = 1;
       let totalResults = 0;
       let currentPageNum = page;
 
-      if (mediaType === 'all' && !search && !genre && !year && availability === 'all' && sort === 'featured') {
-        const [trendMovies, trendTv, nowPlaying, onAir, recent24h] = await Promise.all([
+      const mapUnique = (list, type, limit = 18) => {
+        const seen = new Set();
+        const out = [];
+        for (const item of list || []) {
+          if (!item || !item.id) continue;
+          const t = item._mediaType || type;
+          const k = `${t}-${item.id}`;
+          if (seen.has(k)) continue;
+          seen.add(k);
+          out.push(mapTmdbItem(item, t, genreNames));
+          if (out.length >= limit) break;
+        }
+        return out;
+      };
+
+      const isCuratedPage = !search && !genre && !year && availability === 'all' && sort === 'featured';
+
+      if (mediaType === 'all' && isCuratedPage) {
+        const [
+          trendMovies,
+          trendTv,
+          nowPlaying,
+          onAir,
+          recent24h,
+          topRatedTv,
+          topRatedMovies,
+          adrenalineMoviesRes,
+          crimeDramaTvRes,
+          thrillerMoviesRes
+        ] = await Promise.all([
           tmdb(apiKey, '/trending/movie/day', { page: String(page) }).catch(() => ({ results: [] })),
           tmdb(apiKey, '/trending/tv/day', { page: String(page) }).catch(() => ({ results: [] })),
           tmdb(apiKey, '/movie/now_playing', { page: String(page), region }).catch(() => ({ results: [] })),
           tmdb(apiKey, '/tv/on_the_air', { page: String(page) }).catch(() => ({ results: [] })),
-          page === 1 ? fetchRecent24h(apiKey, genreNames, region).catch(() => []) : Promise.resolve([])
+          page === 1 ? fetchRecent24h(apiKey, genreNames, region).catch(() => []) : Promise.resolve([]),
+          page === 1 ? tmdb(apiKey, '/tv/top_rated', { page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
+          page === 1 ? tmdb(apiKey, '/movie/top_rated', { page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
+          page === 1 ? tmdb(apiKey, '/discover/movie', { with_genres: '28,12', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
+          page === 1 ? tmdb(apiKey, '/discover/tv', { with_genres: '80,9648,18', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
+          page === 1 ? tmdb(apiKey, '/discover/movie', { with_genres: '53,80,9648', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] })
         ]);
-        const movieList = [...(nowPlaying.results || []), ...(trendMovies.results || [])].map(m => ({ ...m, _mediaType: 'movie' }));
-        const tvList = [...(onAir.results || []), ...(trendTv.results || [])].map(m => ({ ...m, _mediaType: 'tv' }));
+        const movieList = [...(trendMovies.results || []), ...(nowPlaying.results || [])].map(m => ({ ...m, _mediaType: 'movie' }));
+        const tvList = [...(trendTv.results || []), ...(onAir.results || [])].map(m => ({ ...m, _mediaType: 'tv' }));
         sourceResults = interleaveUnique(movieList, tvList);
         recentResults = recent24h;
         totalPages = Math.max(trendMovies.total_pages || 1, trendTv.total_pages || 1);
         totalResults = (trendMovies.total_results || 0) + (trendTv.total_results || 0);
+
+        if (page === 1) {
+          const top10Series = mapUnique(trendTv.results || onAir.results || [], 'tv', 10);
+          const top10Films = mapUnique(trendMovies.results || nowPlaying.results || [], 'movie', 10);
+          const topPicks = mapUnique(interleaveUnique(
+            (trendMovies.results || []).slice(2).map(m => ({ ...m, _mediaType: 'movie' })),
+            (trendTv.results || []).slice(2).map(m => ({ ...m, _mediaType: 'tv' }))
+          ), 'movie', 18);
+          const bingeworthyTv = mapUnique([...(onAir.results || []), ...(topRatedTv.results || [])], 'tv', 18);
+          const adrenalineMovies = mapUnique(adrenalineMoviesRes.results || [], 'movie', 18);
+          const ominousDrama = mapUnique(crimeDramaTvRes.results || [], 'tv', 18);
+          const newReleases = recent24h.length
+            ? recent24h.slice(0, 18)
+            : mapUnique(interleaveUnique(
+                (nowPlaying.results || []).map(m => ({ ...m, _mediaType: 'movie' })),
+                (onAir.results || []).map(m => ({ ...m, _mediaType: 'tv' }))
+              ), 'movie', 18);
+          const rewatchFavorites = mapUnique(interleaveUnique(
+            (topRatedMovies.results || []).map(m => ({ ...m, _mediaType: 'movie' })),
+            (topRatedTv.results || []).map(m => ({ ...m, _mediaType: 'tv' }))
+          ), 'movie', 18);
+          const crimeMystery = mapUnique(thrillerMoviesRes.results || [], 'movie', 18);
+
+          homeShelves = {
+            mode: 'all',
+            topPicks,
+            top10Series,
+            bingeworthyTv,
+            top10Films,
+            adrenalineMovies,
+            ominousDrama,
+            newReleases,
+            rewatchFavorites,
+            crimeMystery
+          };
+        }
+      } else if (mediaType === 'tv' && isCuratedPage && page === 1) {
+        const [
+          trendTv,
+          onAir,
+          topRatedTv,
+          crimeDramaTv,
+          sciFiTv,
+          comedyTv,
+          actionTv
+        ] = await Promise.all([
+          tmdb(apiKey, '/trending/tv/day', { page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/tv/on_the_air', { page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/tv/top_rated', { page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/discover/tv', { with_genres: '80,9648', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/discover/tv', { with_genres: '10765', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/discover/tv', { with_genres: '35', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/discover/tv', { with_genres: '10759', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] }))
+        ]);
+        const tvList = [...(trendTv.results || []), ...(onAir.results || [])].map(m => ({ ...m, _mediaType: 'tv' }));
+        sourceResults = tvList;
+        totalPages = trendTv.total_pages || 1;
+        totalResults = trendTv.total_results || tvList.length;
+        homeShelves = {
+          mode: 'tv',
+          topPicks: mapUnique([...(trendTv.results || []).slice(2), ...(onAir.results || [])], 'tv', 18),
+          top10Series: mapUnique(trendTv.results || onAir.results || [], 'tv', 10),
+          bingeworthyTv: mapUnique(onAir.results || [], 'tv', 18),
+          ominousDrama: mapUnique(crimeDramaTv.results || [], 'tv', 18),
+          sciFiFantasy: mapUnique(sciFiTv.results || [], 'tv', 18),
+          actionAdventure: mapUnique(actionTv.results || [], 'tv', 18),
+          comedy: mapUnique(comedyTv.results || [], 'tv', 18),
+          rewatchFavorites: mapUnique(topRatedTv.results || [], 'tv', 18)
+        };
+      } else if (mediaType === 'movie' && isCuratedPage && page === 1) {
+        const [
+          trendMovies,
+          nowPlaying,
+          topRatedMovies,
+          adrenalineMoviesRes,
+          thrillerMoviesRes,
+          sciFiMoviesRes,
+          comedyMoviesRes
+        ] = await Promise.all([
+          tmdb(apiKey, '/trending/movie/day', { page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/movie/now_playing', { page: '1', region }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/movie/top_rated', { page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/discover/movie', { with_genres: '28,12', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/discover/movie', { with_genres: '53,80,9648', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/discover/movie', { with_genres: '878,14', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })),
+          tmdb(apiKey, '/discover/movie', { with_genres: '35', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] }))
+        ]);
+        const movieList = [...(trendMovies.results || []), ...(nowPlaying.results || [])].map(m => ({ ...m, _mediaType: 'movie' }));
+        sourceResults = movieList;
+        totalPages = trendMovies.total_pages || 1;
+        totalResults = trendMovies.total_results || movieList.length;
+        homeShelves = {
+          mode: 'movie',
+          topPicks: mapUnique([...(trendMovies.results || []).slice(2), ...(nowPlaying.results || [])], 'movie', 18),
+          top10Films: mapUnique(trendMovies.results || nowPlaying.results || [], 'movie', 10),
+          newReleases: mapUnique(nowPlaying.results || [], 'movie', 18),
+          adrenalineMovies: mapUnique(adrenalineMoviesRes.results || [], 'movie', 18),
+          crimeMystery: mapUnique(thrillerMoviesRes.results || [], 'movie', 18),
+          sciFiFantasy: mapUnique(sciFiMoviesRes.results || [], 'movie', 18),
+          comedy: mapUnique(comedyMoviesRes.results || [], 'movie', 18),
+          rewatchFavorites: mapUnique(topRatedMovies.results || [], 'movie', 18)
+        };
       } else {
         const effectiveType = mediaType === 'all' ? 'movie' : mediaType;
         let endpoint = `/trending/${effectiveType}/day`;
@@ -340,10 +576,25 @@ module.exports = async function handler(req, res) {
         return mapTmdbItem(m, itemType, genreNames);
       });
 
+      if (page === 1 && !search && results.length) {
+        const heroCandidates = results.filter(m => m.backdrop).slice(0, 5);
+        await Promise.all(heroCandidates.map(async item => {
+          if (!item.tmdbId) return;
+          const t = item.mediaType === 'tv' ? 'tv' : 'movie';
+          const [logo, ageRating] = await Promise.all([
+            item.logo ? Promise.resolve(item.logo) : fetchBestLogo(apiKey, t, item.tmdbId),
+            item.ageRating ? Promise.resolve(item.ageRating) : fetchAgeRating(apiKey, t, item.tmdbId)
+          ]);
+          if (logo) item.logo = logo;
+          if (ageRating) item.ageRating = ageRating;
+        }));
+      }
+
       res.setHeader('Cache-Control', 'no-store');
       return send(res, 200, {
         results,
         recentResults,
+        homeShelves,
         page: currentPageNum,
         totalPages,
         total: totalResults || results.length
@@ -375,8 +626,33 @@ module.exports = async function handler(req, res) {
         return send(res, 200, seasonData);
       }
       const title = await tmdb(apiKey, `/${detailType}/${detailId}`, {
-        append_to_response: detailType === 'tv' ? 'aggregate_credits,videos' : 'credits,videos'
+        append_to_response: detailType === 'tv' ? 'aggregate_credits,videos,content_ratings' : 'credits,videos,release_dates',
+        include_video_language: 'en,null'
       });
+      const extractedRating = detailType === 'tv'
+        ? extractTvRating(title?.content_ratings)
+        : extractMovieCert(title?.release_dates);
+      if (extractedRating) {
+        ageRatingCache.set(`${detailType}-${detailId}`, extractedRating);
+        title.ageRating = extractedRating;
+      } else {
+        title.ageRating = ageRatingCache.get(`${detailType}-${detailId}`) || '';
+      }
+      const existingYt = (title?.videos?.results || []).filter(v => v && v.site === 'YouTube' && v.key);
+      if (existingYt.length < 3) {
+        const allVideos = await tmdb(apiKey, `/${detailType}/${detailId}/videos`, { language: '' }).catch(() => null);
+        if (Array.isArray(allVideos?.results) && allVideos.results.length) {
+          const seenKeys = new Set(existingYt.map(v => v.key));
+          const merged = [...existingYt];
+          for (const v of allVideos.results) {
+            if (v && v.site === 'YouTube' && v.key && !seenKeys.has(v.key)) {
+              seenKeys.add(v.key);
+              merged.push(v);
+            }
+          }
+          title.videos = { results: merged };
+        }
+      }
       return send(res, 200, title);
     }
 

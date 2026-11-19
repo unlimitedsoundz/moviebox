@@ -3,45 +3,76 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#090b10" />
+  <meta name="theme-color" content="#141414" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <meta name="description" content="MovieBox — your home for great stories. Browse, save, and pick up where you left off." />
   <title>MovieBox — Stories worth staying in for</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=20261119y" />
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="#home" data-view="home" aria-label="MovieBox home"><span class="brand-mark">M</span><span>MOVIE<span class="brand-light">BOX</span></span></a>
-    <nav class="main-nav" aria-label="Main navigation"><a class="nav-link active" href="#home" data-view="home">Home</a><a class="nav-link" href="#discover" data-media-type="movie" data-view="movies">Movies</a><a class="nav-link" href="#discover" data-media-type="tv" data-view="tv">TV Shows</a><a class="nav-link" href="#my-list" data-view="saved">My list</a></nav>
+  <header class="topbar" id="topbar">
+    <a class="brand" href="#home" data-view="home" aria-label="MovieBox home">MOVIEBOX</a>
+    <nav class="main-nav" aria-label="Main navigation">
+      <a class="nav-link active" href="#home" data-view="home">Home</a>
+      <a class="nav-link" href="#series" data-media-type="tv" data-view="tv">Series</a>
+      <a class="nav-link" href="#films" data-media-type="movie" data-view="movies">Films</a>
+      <a class="nav-link" href="#new-popular" data-view="recent">New &amp; Popular</a>
+      <a class="nav-link" href="#my-list" data-view="saved">My List</a>
+      <button type="button" class="nav-link nav-browse-btn" id="nav-browse-btn" aria-expanded="false" aria-controls="filter-panel">Browse by Genre</button>
+    </nav>
     <div class="top-actions">
       <div class="search-box" id="search-box">
-        <input id="search-input" type="search" placeholder="Search titles, genres…" aria-label="Search titles" class="search-input" autocomplete="off" />
+        <input id="search-input" type="search" placeholder="Titles, genres…" aria-label="Search titles" class="search-input" autocomplete="off" />
         <button type="button" class="search-close-button" id="search-close" aria-label="Close search" title="Close search"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
       </div>
-      <button class="icon-button search-toggle" id="search-toggle" aria-label="Search" title="Search"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></button>
+      <button class="icon-button search-toggle" id="search-toggle" aria-label="Search" title="Search"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></button>
     </div>
   </header>
   <main id="home">
     <section class="hero" id="hero-section" aria-label="Featured title">
-      <div class="hero-art" role="img" aria-label="Project Hail Mary backdrop" style="background-image: linear-gradient(180deg, rgba(9,11,16,.15) 0%, rgba(9,11,16,.45) 45%, rgba(9,11,16,.95) 85%, #090b10 100%), linear-gradient(90deg, rgba(9,11,16,.94) 0%, rgba(9,11,16,.8) 36%, rgba(9,11,16,.25) 70%, transparent 100%), url('https://image.tmdb.org/t/p/w1280/8Tfys3mDZVp4tNoH2ktm06a0Tau.jpg')"></div>
-      <div class="hero-shade"></div>
-      <div class="hero-content">
-        <div class="eyebrow"><span class="eyebrow-line"></span> <span id="hero-eyebrow">POPULAR ON MOVIEBOX</span></div>
-        <h1 id="hero-title">PROJECT HAIL MARY</h1>
-        <p class="hero-meta"><span class="match" id="hero-match">TMDB</span><span id="hero-year">2026</span><span class="rating" id="hero-rating">★ 8.6</span><span class="quality-pill">HD</span></p>
-        <p class="hero-description" id="hero-description">Science teacher Ryland Grace wakes up on a spaceship light years from home with no recollection of who he is or how he got there. As his memory returns, he begins to uncover his mission: solve the riddle of the mysterious substance causing the sun to die out.</p>
-        <div class="hero-buttons"><button class="button button-primary" id="hero-play"><span class="play-triangle"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></span> Play now</button><button class="button button-secondary" id="hero-info"><span class="info-icon">i</span> More info</button></div>
-      </div>
-      <div class="hero-carousel-nav" id="hero-carousel-nav" aria-label="Featured carousel navigation">
-        <div class="hero-dots" id="hero-dots" role="tablist" aria-label="Featured carousel slides"></div>
+      <div class="hero-billboard">
+        <div class="hero-art" role="img" aria-label="Project Hail Mary backdrop" style="background-image: url('https://image.tmdb.org/t/p/w1280/8Tfys3mDZVp4tNoH2ktm06a0Tau.jpg')"></div>
+        <div class="hero-video-wrap" id="hero-video-wrap" aria-hidden="true"></div>
+        <div class="hero-shade"></div>
+        <span class="hero-monogram" aria-hidden="true">M</span>
+        <div class="hero-content">
+          <div class="eyebrow"><span class="eyebrow-line"></span> <span id="hero-eyebrow">POPULAR ON MOVIEBOX</span></div>
+          <img class="hero-logo" id="hero-logo" alt="" hidden />
+          <h1 id="hero-title">PROJECT HAIL MARY</h1>
+          <p class="hero-meta">
+            <span id="hero-kind">Film</span>
+            <span class="meta-dot">·</span>
+            <span id="hero-genre">Science Fiction</span>
+            <span class="meta-dot">·</span>
+            <span id="hero-year">2026</span>
+            <span class="meta-dot">·</span>
+            <span class="rating" id="hero-rating">★ 8.6</span>
+            <span class="age-rating-pill" id="hero-age-rating" hidden></span>
+            <span class="quality-pill">HD</span>
+          </p>
+          <p class="hero-description" id="hero-description">Science teacher Ryland Grace wakes up on a spaceship light years from home with no recollection of who he is or how he got there. As his memory returns, he begins to uncover his mission: solve the riddle of the mysterious substance causing the sun to die out.</p>
+          <div class="hero-buttons">
+            <button class="button button-primary" id="hero-play"><span class="play-triangle"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></span> Play</button>
+            <button class="button button-secondary" id="hero-info">More info</button>
+          </div>
+        </div>
+        <div class="hero-footer-right">
+          <div class="hero-footer-controls">
+            <button type="button" class="hero-mute-btn" id="hero-mute-btn" hidden aria-label="Unmute hero preview" title="Unmute"></button>
+            <p class="hero-caption" id="hero-caption">Featured on MovieBox</p>
+          </div>
+          <div class="hero-carousel-nav" id="hero-carousel-nav" aria-label="Featured carousel navigation">
+            <div class="hero-dots" id="hero-dots" role="tablist" aria-label="Featured carousel slides"></div>
+          </div>
+        </div>
       </div>
     </section>
-    <section class="toolbar" id="discover">
-      <div class="section-heading"><button class="filter-button" id="filter-toggle"><svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg><span>Filters</span><svg class="icon-svg chevron-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg></button></div>
-      <div class="filter-panel" id="filter-panel" hidden>
-        <label>Type<select id="media-type"><option value="movie">Movies</option><option value="tv">TV shows</option></select></label>
+    <section class="toolbar" id="discover" hidden>
+      <div class="filter-panel" id="filter-panel">
+        <label>Type<select id="media-type"><option value="movie">Films</option><option value="tv">Series</option></select></label>
         <label>Availability<select id="availability-filter"><option value="all" selected>Any availability</option><option value="free">Free</option><option value="ads">Free with ads</option><option value="free|ads">Free or ad-supported</option></select></label>
         <label>Region<select id="region-filter"><option value="US" selected>United States</option><option value="GB">United Kingdom</option><option value="CA">Canada</option><option value="NG">Nigeria</option><option value="IN">India</option></select></label>
         <label>Genre<select id="genre-filter"><option value="all">All genres</option><option>Adventure</option><option>Drama</option><option>Documentary</option><option>Science fiction</option><option>Thriller</option><option>Comedy</option></select></label>
@@ -53,7 +84,7 @@
     <section class="shelf" id="my-list-section" hidden>
       <div class="shelf-title">
         <div>
-          <h2>My list</h2>
+          <h2>My List</h2>
           <span class="shelf-note" id="my-list-count">Your saved movies and shows</span>
         </div>
       </div>
@@ -61,93 +92,149 @@
       <div class="empty-list-state" id="my-list-empty" hidden>
         <div class="empty-icon"><svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></div>
         <h3>Your list is empty</h3>
-        <p>Save movies and TV shows to build your personal watchlist. Tap the bookmark button on any title.</p>
+        <p>Save movies and TV shows to build your personal watchlist. Click the + button on any title.</p>
         <button type="button" class="button button-primary" id="my-list-browse-btn">Browse titles</button>
       </div>
     </section>
-    <section class="shelf" id="continue" hidden><div class="shelf-title"><h2>Continue watching</h2><span class="shelf-note">Right where you left off</span></div><div class="movie-row" id="continue-row"></div></section>
-    <section class="shelf" id="recent-shelf" hidden><div class="shelf-title"><h2>Recently added</h2><span class="shelf-note">Movies &amp; TV shows in the last 24 hours</span><a href="#discover" class="see-all" id="recent-see-all">See all <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align: middle; margin-left: 3px;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a></div><div class="movie-row" id="recent-row"></div></section>
-    <section class="shelf" id="featured-shelf"><div class="shelf-title"><h2>Made for your evenings</h2><a href="#discover" class="see-all">See all <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align: middle; margin-left: 3px;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a></div><div class="movie-row" id="featured-row"></div></section>
-    <section class="shelf" id="wonder-shelf"><div class="shelf-title"><h2>Stories with a little wonder</h2><a href="#discover" class="see-all">See all <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align: middle; margin-left: 3px;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></a></div><div class="movie-row" id="wonder-row"></div></section>
+    <div class="home-shelves" id="home-shelves" aria-label="Curated collections"></div>
     <section class="shelf search-results" id="results-section" hidden><div class="shelf-title"><h2 id="results-title">Search results</h2><span class="shelf-note" id="results-count"></span></div><div class="movie-grid" id="results-grid"></div><nav class="pagination" id="pagination" aria-label="Catalog pages" hidden></nav></section>
     <section class="detail-page" id="detail-page" hidden aria-label="Title details">
       <div class="detail-backdrop" id="detail-backdrop"></div>
-      <div class="detail-inner">
+      <div class="detail-topbar-wrap">
         <div class="detail-topbar">
           <button type="button" class="detail-back-btn" id="detail-back" aria-label="Back to browse">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
             <span>Back</span>
           </button>
         </div>
-        <div class="player-stage" id="player-stage" hidden>
-          <div class="player-shell">
-            <div class="player-top">
-              <div class="player-top-left"><span class="player-live-dot"></span><span id="player-label">NOW PLAYING</span></div>
-              <button type="button" class="close-button" id="player-close" aria-label="Close player" title="Close player"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-            </div>
+      </div>
+      <div class="player-stage" id="player-stage" hidden>
+        <div class="player-shell">
+          <div class="player-media-wrap">
+            <button type="button" class="close-button player-floating-close" id="player-close" aria-label="Close player" title="Close player"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             <video id="video-player" controls playsinline preload="metadata" crossorigin="anonymous"></video>
-            <iframe id="stream-player" title="MovieBox video player" allow="autoplay; fullscreen; picture-in-picture; encrypted-media; accelerometer; gyroscope" allowfullscreen referrerpolicy="no-referrer"></iframe>
-            <div class="player-controls">
-              <div class="player-title-wrap"><h2 id="player-title">The Last Horizon</h2><p id="player-subtitle">A MovieBox Original · 2025</p></div>
-              <div class="player-selectors-grid">
-                <label id="server-option" class="player-field" hidden><span class="field-label">Server</span><select id="server-select" aria-label="Stream server"><option value="vidfast" selected>VidFast (Fast &amp; HD)</option><option value="vidlink">VidLink</option><option value="cinesrc">CineSrc</option></select></label>
-                <label id="season-option" class="player-field" hidden><span class="field-label">Season</span><select id="season-select" aria-label="TV Season"></select></label>
-                <label id="episode-option" class="player-field" hidden><span class="field-label">Episode</span><select id="episode-select" aria-label="TV Episode"></select></label>
-                <label id="quality-option" class="player-field"><span class="field-label">Quality</span><select id="quality-select" aria-label="Video quality"><option value="auto">Auto</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label>
-                <label id="subtitle-option" class="player-field"><span class="field-label">Subtitles</span><select id="subtitle-select" aria-label="Subtitles"><option value="off">Off</option><option value="en">English</option></select></label>
+            <iframe id="stream-player" tabindex="0" scrolling="no" title="MovieBox video player" allow="autoplay; fullscreen; picture-in-picture; encrypted-media; accelerometer; gyroscope" allowfullscreen referrerpolicy="no-referrer"></iframe>
+            <div class="player-scroll-edge left" aria-hidden="true"></div>
+            <div class="player-scroll-edge right" aria-hidden="true"></div>
+            <div class="player-pause-overlay" id="player-pause-overlay" hidden aria-live="polite">
+              <div class="pause-overlay-content">
+                <span class="pause-kicker">YOU'RE WATCHING</span>
+                <img class="pause-logo" id="pause-logo" alt="" hidden />
+                <h2 class="pause-title" id="pause-title"></h2>
+                <p class="pause-meta" id="pause-meta"></p>
+                <p class="pause-synopsis" id="pause-synopsis"></p>
+                <button type="button" class="button button-primary pause-resume-btn" id="pause-resume-btn">
+                  <span class="play-triangle"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></span> Resume
+                </button>
               </div>
-              <div class="player-actions-row">
-                <button type="button" class="player-action-button ep-nav-btn" id="player-prev-ep" hidden title="Previous Episode"><span class="btn-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg></span><span>Prev Ep</span></button>
-                <button type="button" class="player-action-button ep-nav-btn" id="player-next-ep" hidden title="Next Episode"><span>Next Ep</span><span class="btn-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg></span></button>
-                <button type="button" class="player-action-button skip-intro-btn" id="player-skip-intro" hidden title="Skip Intro (+85s)"><span class="btn-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"></polygon><polygon points="13 4 23 12 13 20 13 4"></polygon></svg></span><span>Skip Intro</span></button>
-                <button type="button" class="player-action-button reload-btn" id="player-reload" title="Safely reload player without ads"><span class="btn-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2v6h-6"></path><path d="M2.5 22v-6h6"></path><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8"></path><path d="M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16"></path></svg></span><span>Reload</span></button>
-                <button type="button" class="player-action-button fullscreen-btn" id="player-fullscreen" title="Toggle Fullscreen (F)"><span class="btn-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg></span><span>Fullscreen</span></button>
-              </div>
+              <span class="pause-status-label">Paused</span>
             </div>
-            <p class="demo-note" id="player-note">Playback provided by your connected media library.</p>
+          </div>
+          <div class="player-controls">
+            <div class="player-title-wrap"><h2 id="player-title">The Last Horizon</h2><p id="player-subtitle">A MovieBox Original · 2025</p></div>
+            <div class="player-selectors-grid">
+              <label id="server-option" class="player-field" hidden><span class="field-label">Server</span><select id="server-select" aria-label="Stream server"><option value="vidfast" selected>VidFast (Fast &amp; HD)</option><option value="vidlink">VidLink</option><option value="cinesrc">CineSrc</option></select></label>
+              <label id="season-option" class="player-field" hidden><span class="field-label">Season</span><select id="season-select" aria-label="TV Season"></select></label>
+              <label id="episode-option" class="player-field" hidden><span class="field-label">Episode</span><select id="episode-select" aria-label="TV Episode"></select></label>
+              <label id="quality-option" class="player-field"><span class="field-label">Quality</span><select id="quality-select" aria-label="Video quality"><option value="auto">Auto</option><option value="1080">1080p</option><option value="720">720p</option><option value="480">480p</option></select></label>
+              <label id="subtitle-option" class="player-field"><span class="field-label">Subtitles</span><select id="subtitle-select" aria-label="Subtitles"><option value="off">Off</option><option value="en">English</option></select></label>
+            </div>
+            <div class="player-actions-row">
+              <button type="button" class="player-action-button ep-nav-btn" id="player-prev-ep" hidden title="Previous Episode"><span class="btn-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="19 20 9 12 19 4 19 20"></polygon><line x1="5" y1="19" x2="5" y2="5"></line></svg></span><span>Prev Ep</span></button>
+              <button type="button" class="player-action-button ep-nav-btn" id="player-next-ep" hidden title="Next Episode"><span>Next Ep</span><span class="btn-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg></span></button>
+              <button type="button" class="player-action-button skip-intro-btn" id="player-skip-intro" hidden title="Skip Intro (+85s)"><span class="btn-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="5 4 15 12 5 20 5 4"></polygon><polygon points="13 4 23 12 13 20 13 4"></polygon></svg></span><span>Skip Intro</span></button>
+              <button type="button" class="player-action-button reload-btn" id="player-reload" title="Safely reload player without ads"><span class="btn-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.5 2v6h-6"></path><path d="M2.5 22v-6h6"></path><path d="M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8"></path><path d="M22 12.5a10 10 0 0 1-18.8 4.3L2.5 16"></path></svg></span><span>Reload</span></button>
+              <button type="button" class="player-action-button fullscreen-btn" id="player-fullscreen" title="Toggle Fullscreen (F)"><span class="btn-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg></span><span>Fullscreen</span></button>
+            </div>
           </div>
         </div>
-        <div class="detail-hero" id="detail-hero">
-          <div class="detail-poster-wrap">
-            <img class="detail-poster" id="detail-poster" alt="" />
-          </div>
-          <div class="detail-body">
-            <p class="kicker" id="detail-kicker">MOVIEBOX ORIGINAL</p>
-            <h1 id="detail-title"></h1>
-            <p class="info-meta" id="detail-meta"></p>
-            <p class="detail-description" id="detail-description"></p>
-            <div class="info-buttons">
-              <button type="button" class="button button-primary" id="detail-play"><span class="play-triangle"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></span> Play</button>
-              <button type="button" class="button button-secondary" id="detail-restart" hidden title="Restart from beginning"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2v6h6"></path><path d="M2.5 8a10 10 0 1 1-1.3 7"></path></svg> Restart</button>
-              <button type="button" class="button button-secondary" id="detail-save"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg> My list</button>
+      </div>
+      <div class="detail-inner">
+        <div class="detail-hero nf-detail-info" id="detail-hero">
+          <div class="nf-modal-info-grid">
+            <div class="nf-modal-info-left">
+              <p class="kicker nf-detail-kicker" id="detail-kicker">MOVIEBOX</p>
+              <img class="nf-detail-logo" id="detail-logo" alt="" hidden />
+              <h1 id="detail-title"></h1>
+              <div class="nf-modal-meta-row" id="detail-meta"></div>
+              <div class="nf-modal-age-row" id="detail-age-row" hidden></div>
+              <p class="nf-modal-synopsis" id="detail-description"></p>
+              <div class="info-buttons nf-detail-actions">
+                <button type="button" class="nf-modal-play-btn" id="detail-play"><span class="play-triangle"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg></span> Play</button>
+                <button type="button" class="button button-secondary" id="detail-restart" hidden title="Restart from beginning"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 2v6h6"></path><path d="M2.5 8a10 10 0 1 1-1.3 7"></path></svg> Restart</button>
+                <button type="button" class="nf-circle-btn" id="detail-save" aria-label="My List" title="My List"></button>
+              </div>
             </div>
-            <section class="provider-panel" id="provider-panel" hidden>
-              <h3>Free to watch</h3>
-              <p id="provider-note"></p>
-              <div id="provider-links"></div>
-            </section>
+            <div class="nf-modal-info-right">
+              <p class="nf-modal-fact" id="detail-cast-wrap" hidden><span class="nf-fact-label">Cast:</span> <span id="detail-cast"></span></p>
+              <p class="nf-modal-fact" id="detail-genres-wrap" hidden><span class="nf-fact-label">Genres:</span> <span id="detail-genres"></span></p>
+              <p class="nf-modal-fact" id="detail-tags-wrap"><span class="nf-fact-label">This title is:</span> <span id="detail-tags"></span></p>
+            </div>
           </div>
         </div>
-        <section class="detail-seasons-section" id="detail-seasons-section" hidden aria-label="Seasons and episodes">
-          <div class="seasons-header">
-            <div class="seasons-heading-wrap">
-              <h2 class="seasons-title">Episodes</h2>
-              <span class="seasons-badge" id="seasons-badge"></span>
-            </div>
+        <section class="detail-seasons-section nf-detail-episodes" id="detail-seasons-section" hidden aria-label="Seasons and episodes">
+          <div class="nf-modal-ep-header">
+            <h2 class="seasons-title">Episodes</h2>
             <div class="seasons-selector-wrap">
               <label for="detail-season-select" class="visually-hidden">Season</label>
-              <select id="detail-season-select" class="detail-season-select" aria-label="Select season"></select>
+              <select id="detail-season-select" class="nf-modal-season-select" aria-label="Select season"></select>
             </div>
           </div>
-          <div class="seasons-pills" id="seasons-pills" role="tablist" aria-label="TV Seasons"></div>
-          <div class="episodes-grid" id="episodes-grid" role="list" aria-label="Episodes list"></div>
+          <div class="nf-modal-ep-submeta" id="detail-ep-submeta"></div>
+          <div class="nf-modal-ep-list" id="episodes-grid" role="list" aria-label="Episodes list"></div>
         </section>
       </div>
     </section>
   </main>
-  <footer><a class="brand footer-brand" href="#home" data-view="home"><span class="brand-mark">M</span><span>MOVIE<span class="brand-light">BOX</span></span></a><p>Stories worth staying in for.</p><div class="footer-links"><a href="#discover" data-view="discover">Browse</a><a href="#my-list" data-view="saved">My list</a><button id="server-settings">Connect a server</button><a href="#home" data-view="home">About</a></div><small>© 2025 MovieBox · Movie data and images from <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB. Internet Archive playback availability and rights vary by item.</small></footer>
+  <footer><a class="brand footer-brand" href="#home" data-view="home">MOVIEBOX</a><p>Stories worth staying in for.</p><div class="footer-links"><a href="#discover" data-view="discover">Browse</a><a href="#my-list" data-view="saved">My List</a><button id="server-settings">Connect a server</button><a href="#home" data-view="home">About</a></div><small>© 2026 MovieBox · Movie data and images from <a href="https://www.themoviedb.org/" target="_blank" rel="noreferrer">TMDB</a>. This product uses the TMDB API but is not endorsed or certified by TMDB. Internet Archive playback availability and rights vary by item.</small></footer>
+  <dialog id="more-info-modal" class="nf-info-modal" aria-label="Title information">
+    <div class="nf-modal-hero">
+      <img class="nf-modal-backdrop" id="modal-backdrop" alt="" />
+      <div class="nf-modal-video-wrap" id="modal-video-wrap"></div>
+      <div class="nf-modal-hero-scrim"></div>
+      <button type="button" class="nf-modal-close" id="modal-close" aria-label="Close">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+      <div class="nf-modal-hero-content">
+        <span class="nf-modal-brand-kicker">MOVIEBOX</span>
+        <img class="nf-modal-logo" id="modal-logo" alt="" hidden />
+        <h2 class="nf-modal-title" id="modal-title"></h2>
+        <div class="nf-modal-actions">
+          <button type="button" class="nf-modal-play-btn" id="modal-play">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            <span>Play</span>
+          </button>
+          <button type="button" class="nf-circle-btn" id="modal-save" aria-label="Add to My List" title="Add to My List"></button>
+        </div>
+      </div>
+      <button type="button" class="nf-modal-mute-btn" id="modal-mute-btn" hidden aria-label="Unmute preview" title="Unmute"></button>
+    </div>
+    <div class="nf-modal-body">
+      <div class="nf-modal-info-grid">
+        <div class="nf-modal-info-left">
+          <div class="nf-modal-meta-row" id="modal-meta-row"></div>
+          <div class="nf-modal-age-row" id="modal-age-row" hidden></div>
+          <p class="nf-modal-synopsis" id="modal-synopsis"></p>
+        </div>
+        <div class="nf-modal-info-right">
+          <p class="nf-modal-fact" id="modal-cast-wrap" hidden><span class="nf-fact-label">Cast:</span> <span id="modal-cast"></span></p>
+          <p class="nf-modal-fact" id="modal-genres-wrap" hidden><span class="nf-fact-label">Genres:</span> <span id="modal-genres"></span></p>
+          <p class="nf-modal-fact" id="modal-tags-wrap" hidden><span class="nf-fact-label">This title is:</span> <span id="modal-tags"></span></p>
+        </div>
+      </div>
+      <section class="nf-modal-episodes" id="modal-episodes-section" hidden>
+        <div class="nf-modal-ep-header">
+          <h3>Episodes</h3>
+          <select id="modal-season-select" class="nf-modal-season-select" aria-label="Select season"></select>
+        </div>
+        <div class="nf-modal-ep-submeta" id="modal-ep-submeta"></div>
+        <div class="nf-modal-ep-list" id="modal-ep-list"></div>
+      </section>
+    </div>
+  </dialog>
+  <div class="nf-hover-card" id="hover-card" hidden aria-hidden="true"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <dialog id="server-dialog" class="server-dialog"><div class="settings-head"><div><p class="kicker">PREFERENCES &amp; LIBRARY</p><h2>Settings &amp; Library</h2></div><button class="close-button" data-close="server-dialog" aria-label="Close settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div><div class="settings-adblock-card"><div class="adblock-card-header"><span class="adblock-card-icon">🛡️</span><div><h3>Inbuilt Ad &amp; Redirect Blocker</h3><p>Blocks malicious redirects, popups, and tab hijacking when streaming movies and TV shows.</p></div></div><div class="adblock-card-controls"><label class="toggle-control"><input type="checkbox" id="adblock-setting-toggle" checked /><span class="toggle-slider"></span><span class="toggle-label" id="adblock-setting-label">Protection Active</span></label><span class="adblock-status-pill" id="adblock-stats-summary">Shield active</span></div></div><p class="settings-copy">Connect a movie server or catalog API to bring your own authorized library into MovieBox.</p><form id="server-form"><label>Catalog API URL<input id="server-url" type="url" placeholder="https://your-server.example/api/movies" /></label><label>Access token <span class="optional">optional</span><input id="server-token" type="password" placeholder="Your server token" autocomplete="off" /></label><button type="submit" class="button button-primary settings-submit">Save connection</button></form><div class="api-hint"><strong>Expected catalog format</strong><code>[{ "id":"1", "title":"...", "year":2025, "genre":"Drama", "poster":"https://…", "description":"…", "rating":8.1, "duration":"1h 42m", "videoUrl":"https://…", "subtitlesUrl":"https://…" }]</code><span>Use a server that permits browser playback (CORS) and provides media you’re authorized to watch.</span></div></dialog>
-  <script src="app.js?v=20261118b"></script>
+  <script src="app.js?v=20261119t"></script>
 </body>
 </html>
