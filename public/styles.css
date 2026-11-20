@@ -4193,3 +4193,206 @@ body.player-fullscreen-mode footer {
 .player-stage.is-fullscreen .player-pause-overlay {
   display: none !important;
 }
+
+/* Crisp Netflix-style Subtitles for Native HTML5/HLS Video Player */
+#video-player::cue {
+  background: transparent;
+  color: #ffffff;
+  font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+  font-size: 1.35em;
+  font-weight: 700;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.95), 0 0 3px #000000;
+}
+
+/* Single Native Netflix-Style Player HUD (ONLY shown for native <video>/HLS streams) */
+.native-player-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 28px 44px 34px;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.78) 0%,
+    rgba(0, 0, 0, 0.14) 26%,
+    rgba(0, 0, 0, 0.14) 70%,
+    rgba(0, 0, 0, 0.88) 100%
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease;
+}
+
+.native-player-hud.visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.native-hud-top {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.native-hud-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(20, 20, 20, 0.76);
+  color: #ffffff;
+  font: 700 16px "Inter", sans-serif;
+  cursor: pointer;
+}
+
+.native-hud-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.native-hud-title {
+  margin: 0;
+  font: 800 24px "Inter", sans-serif;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.native-hud-sub {
+  margin: 4px 0 0;
+  font: 500 14px "Inter", sans-serif;
+  color: #cccccc;
+}
+
+.native-hud-badge {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(20, 20, 20, 0.76);
+  color: #ffffff;
+  font: 700 13px "Inter", sans-serif;
+  white-space: nowrap;
+}
+
+.native-hud-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 48px;
+}
+
+.native-hud-circle {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.38);
+  background: rgba(20, 20, 20, 0.75);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.native-hud-circle.native-hud-play {
+  width: 84px;
+  height: 84px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #000000;
+  border-color: #ffffff;
+}
+
+.native-hud-sec {
+  position: absolute;
+  font: 800 12px "Inter", sans-serif;
+  color: #ffffff;
+  top: 53%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.native-hud-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.native-hud-progress {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.native-hud-time {
+  font: 600 14px "Inter", sans-serif;
+  color: #e5e5e5;
+  min-width: 56px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.native-hud-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.28);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.native-hud-bar-fill {
+  height: 100%;
+  background: #e50914;
+  border-radius: 999px;
+  width: 0%;
+}
+
+.native-hud-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.native-hud-pill {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(24, 24, 24, 0.84);
+  color: #ffffff;
+  font: 600 15px "Inter", sans-serif;
+  cursor: pointer;
+}
+
+.native-hud-btn:focus-visible,
+.native-hud-btn.tv-focus,
+.native-hud-circle:focus-visible,
+.native-hud-circle.tv-focus,
+.native-hud-pill:focus-visible,
+.native-hud-pill.tv-focus {
+  outline: 4px solid #ffffff !important;
+  outline-offset: 4px;
+  transform: scale(1.08);
+  background: #e50914;
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.native-hud-circle.native-hud-play:focus-visible,
+.native-hud-circle.native-hud-play.tv-focus {
+  background: #ffffff;
+  color: #000000;
+  outline: 4px solid #e50914 !important;
+  outline-offset: 4px;
+}
