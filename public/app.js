@@ -3103,16 +3103,22 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     }
   }
 
+  function isExcludedFromTvFocus(el){
+    if(!el)return true;
+    return el.matches('.brand, .footer-brand, .hero-dot')||Boolean(el.closest('footer'));
+  }
+
   let lastTvFocused=null;
 
   function setTvFocusRing(el){
+    if(el&&isExcludedFromTvFocus(el))el=null;
     if(lastTvFocused&&lastTvFocused!==el)lastTvFocused.classList.remove('tv-focus');
     lastTvFocused=el||null;
     if(el)el.classList.add('tv-focus');
   }
 
   function isElementVisible(el){
-    if(!el||el.hidden||el.closest('[hidden]'))return false;
+    if(!el||isExcludedFromTvFocus(el)||el.hidden||el.closest('[hidden]'))return false;
     const style=window.getComputedStyle(el);
     if(style.display==='none'||style.visibility==='hidden'||style.pointerEvents==='none')return false;
     const r=el.getBoundingClientRect();
@@ -3357,14 +3363,14 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
   // 2. Zero-layout-thrash pointer focus snap (fast on VIDAA & Smart TV GPUs)
   document.addEventListener('pointerover',e=>{
     const direct=e.target?.closest?.(FOCUS_SELECTOR);
-    if(direct&&lastTvFocused!==direct){
+    if(direct&&!isExcludedFromTvFocus(direct)&&lastTvFocused!==direct){
       setTvFocusRing(direct);
     }
   },{passive:true});
 
   document.addEventListener('focusin',e=>{
     const target=e.target?.closest?.(FOCUS_SELECTOR);
-    if(target)setTvFocusRing(target);
+    if(target&&!isExcludedFromTvFocus(target))setTvFocusRing(target);
   });
 })();
 $('#player-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));

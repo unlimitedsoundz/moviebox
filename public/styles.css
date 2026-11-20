@@ -4396,3 +4396,16 @@ body.player-fullscreen-mode footer {
   outline: 4px solid #e50914 !important;
   outline-offset: 4px;
 }
+
+.brand:focus,
+.brand:focus-visible,
+.brand.tv-focus,
+footer a:focus,
+footer a:focus-visible,
+footer a.tv-focus,
+footer button:focus,
+footer button:focus-visible,
+footer button.tv-focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
