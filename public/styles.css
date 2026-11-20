@@ -28,18 +28,18 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 15px;
+  font-size: 17px;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* ==========================================================================
-   Header & Navigation (Netflix Desktop Layout — No Profile Avatars)
+   Header & Navigation (Netflix Desktop & TV Layout — No Profile Avatars)
    ========================================================================== */
 
 .topbar {
-  height: 68px;
+  height: 76px;
   display: flex;
   align-items: center;
   padding: 0 var(--gutter);
@@ -49,7 +49,7 @@ body {
   left: 0;
   right: 0;
   top: 0;
-  background: linear-gradient(180deg, rgba(20, 20, 20, 0.92) 0%, rgba(20, 20, 20, 0.65) 60%, transparent 100%);
+  background: linear-gradient(180deg, rgba(20, 20, 20, 0.94) 0%, rgba(20, 20, 20, 0.68) 60%, transparent 100%);
   transition: background 0.25s ease, box-shadow 0.25s ease;
 }
 
@@ -66,9 +66,9 @@ body {
   color: var(--accent);
   text-decoration: none;
   font-family: "Bebas Neue", "Inter", sans-serif;
-  font-size: 31px;
+  font-size: 36px;
   font-weight: 400;
-  letter-spacing: 1.6px;
+  letter-spacing: 1.8px;
   line-height: 1;
   flex-shrink: 0;
   user-select: none;
@@ -81,21 +81,21 @@ body {
 
 .main-nav {
   display: flex;
-  gap: 6px;
+  gap: 8px;
   height: 100%;
   align-items: center;
 }
 
 .nav-link {
-  color: #d4d4d4;
+  color: #dcdcdc;
   text-decoration: none;
   font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 13.5px;
+  font-size: 16px;
   font-weight: 500;
   letter-spacing: -0.01em;
   transition: color 0.18s ease, background 0.18s ease;
   position: relative;
-  padding: 7px 14px;
+  padding: 9px 18px;
   border-radius: 999px;
   background: transparent;
   border: 0;
@@ -103,14 +103,16 @@ body {
   white-space: nowrap;
 }
 
-.nav-link:hover {
+.nav-link:hover,
+.nav-link:focus-visible {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
 }
 
 .nav-link.active {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.2);
   font-weight: 600;
 }
 
@@ -208,7 +210,7 @@ body {
    ========================================================================== */
 
 .hero {
-  padding: 72px var(--gutter) 14px;
+  padding: 82px var(--gutter) 16px;
   position: relative;
 }
 
@@ -216,8 +218,8 @@ body {
   position: relative;
   width: 100%;
   height: calc(100vh - 116px);
-  min-height: 600px;
-  max-height: 880px;
+  min-height: 580px;
+  max-height: 860px;
   border-radius: 14px;
   overflow: hidden;
   background: #1a1a1a;
@@ -231,14 +233,13 @@ body {
 
 @media (min-width: 1025px) {
   .hero {
-    padding-left: 450px;
-    padding-right: 450px;
+    padding: 82px var(--gutter) 16px;
   }
 
   .hero-billboard {
-    height: calc(100vh - 86px);
-    min-height: 820px;
-    max-height: none;
+    height: calc(100vh - 110px);
+    min-height: 640px;
+    max-height: 880px;
   }
 }
 
@@ -421,31 +422,40 @@ body {
   display: flex;
   align-items: center;
   justify-content: flex-start;
+  flex-wrap: nowrap;
   gap: 14px;
   margin: 0;
-}
-
-.hero-buttons .button {
-  padding: 13px 30px;
-  font-size: 16.5px;
 }
 
 .button {
   border: 0;
   border-radius: 999px;
-  padding: 11px 26px;
-  font: 700 14.5px "Inter", sans-serif;
+  min-height: 46px;
+  padding: 12px 28px;
+  font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  line-height: 1;
   cursor: pointer;
   transition: transform 0.16s ease, background 0.16s ease, opacity 0.16s ease;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   text-decoration: none;
+  white-space: nowrap;
 }
 
-.button:hover {
-  transform: scale(1.02);
+.hero-buttons .button {
+  min-height: 52px;
+  padding: 14px 34px;
+  font-size: 18px;
+  gap: 10px;
+}
+
+.button:hover,
+.button:focus-visible {
+  transform: scale(1.03);
 }
 
 .button-primary {
@@ -453,24 +463,28 @@ body {
   color: #000000;
 }
 
-.button-primary:hover {
+.button-primary:hover,
+.button-primary:focus-visible {
   background: rgba(255, 255, 255, 0.86);
 }
 
 .button-secondary {
-  background: rgba(109, 109, 110, 0.72);
+  background: rgba(109, 109, 110, 0.78);
   color: #ffffff;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
 }
 
-.button-secondary:hover {
-  background: rgba(109, 109, 110, 0.52);
+.button-secondary:hover,
+.button-secondary:focus-visible {
+  background: rgba(109, 109, 110, 0.58);
 }
 
 .play-triangle {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
 .info-icon {
@@ -746,10 +760,10 @@ body {
 .nf-row-title {
   margin: 0;
   font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 19px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.015em;
-  color: #e5e5e5;
+  color: #f0f0f0;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -761,11 +775,11 @@ body {
 
 .nf-row-track {
   display: flex;
-  gap: 8px;
+  gap: 12px;
   overflow-x: auto;
   scroll-behavior: smooth;
   scrollbar-width: none;
-  padding: 4px var(--gutter) 8px;
+  padding: 6px var(--gutter) 12px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -810,13 +824,13 @@ body {
   border-radius: 6px 0 0 6px;
 }
 
-/* Landscape 16:9 Card (6 across + subtle 7th peek on desktop) */
+/* Landscape 16:9 Card (Bigger for Desktop & TV Browsers: ~4.3 across) */
 .nf-card {
   position: relative;
-  flex: 0 0 calc((100% - 44px) / 6.18);
-  min-width: 195px;
+  flex: 0 0 calc((100% - 44px) / 4.35);
+  min-width: 270px;
   aspect-ratio: 16 / 9;
-  border-radius: 6px;
+  border-radius: 8px;
   overflow: hidden;
   background: #1f1f1f;
   cursor: pointer;
@@ -824,8 +838,18 @@ body {
   user-select: none;
 }
 
-.nf-card:hover {
+.nf-card:hover,
+.nf-card:focus-visible {
   z-index: 4;
+}
+
+.nf-card:focus-visible,
+.nf-top10-card:focus-visible,
+.nav-link:focus-visible,
+.nf-modal-play-btn:focus-visible,
+.nf-modal-ep-row:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 3px;
 }
 
 .nf-card-img {
@@ -884,13 +908,13 @@ body {
 
 .nf-card-title {
   position: absolute;
-  left: 10px;
-  right: 10px;
-  bottom: 10px;
+  left: 14px;
+  right: 14px;
+  bottom: 12px;
   z-index: 2;
   margin: 0;
   font-family: "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  font-size: 13.5px;
+  font-size: 16.5px;
   font-weight: 800;
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -940,15 +964,15 @@ body {
 
 /* Top 10 Ranked Row (Giant Hollow Outlined Numbers matching 9:16 Portrait Poster Height) */
 .nf-row-track.is-top10 {
-  gap: 14px;
-  padding-top: 6px;
-  padding-bottom: 10px;
+  gap: 18px;
+  padding-top: 8px;
+  padding-bottom: 14px;
 }
 
 .nf-top10-card {
   position: relative;
-  flex: 0 0 calc((100% - 76px) / 6.18);
-  min-width: 205px;
+  flex: 0 0 calc((100% - 62px) / 4.35);
+  min-width: 255px;
   display: flex;
   align-items: stretch;
   cursor: pointer;
@@ -1311,8 +1335,8 @@ body {
 
 .movie-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 26px 18px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 28px 20px;
 }
 
 .empty-list-state {
@@ -1430,8 +1454,8 @@ body {
 }
 
 .card-title {
-  margin: 0 0 4px;
-  font-size: 13px;
+  margin: 0 0 5px;
+  font-size: 16px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -1442,8 +1466,8 @@ body {
   display: flex;
   gap: 8px;
   align-items: center;
-  color: #999fac;
-  font-size: 10px;
+  color: #a3a3a3;
+  font-size: 13px;
 }
 
 .card-meta .card-rating {
