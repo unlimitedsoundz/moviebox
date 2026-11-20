@@ -6,9 +6,9 @@ MovieBox includes a dedicated **Hisense VIDAA OS 10-foot TV WebApp** (`/?tv=vida
 
 ## Option 1: 1-Click Install via VIDAA Browser (`/vidaa.html`)
 1. Open the **Browser** app on your Hisense VIDAA TV.
-2. Navigate to your deployed MovieBox installer page:
+2. Navigate to:
    ```text
-   https://<your-moviebox-domain>/vidaa.html
+   https://penkka.fi/vidaa.html
    ```
 3. Press **OK** on **Install on Hisense TV** (uses `Hisense_installApp` when available in VIDAA OS).
 4. Once installed, **MovieBox** appears as a standalone app tile on your VIDAA Home screen.
@@ -16,17 +16,17 @@ MovieBox includes a dedicated **Hisense VIDAA OS 10-foot TV WebApp** (`/?tv=vida
 ## Option 2: Install via Hisense VIDAA Debug Page (Works on All VIDAA Versions)
 1. Open the **Browser** app on your Hisense TV.
 2. Go to **`hisense://debug`** (or the VIDAA App Installer URL if your TV firmware uses `vidaahub.com`).
-3. Enter your hosted MovieBox values (also displayed on `/vidaa.html`):
+3. Enter these exact MovieBox values:
    - **App ID**: `moviebox_vidaa_app`
    - **App Name**: `MovieBox`
-   - **App URL**: `https://<your-moviebox-domain>/?tv=vidaa`
-   - **Thumbnail URL**: `https://<your-moviebox-domain>/vidaa-thumb.png`
-   - **Icon URL (Small)**: `https://<your-moviebox-domain>/icon-192.png`
-   - **Icon URL (Large)**: `https://<your-moviebox-domain>/icon-512.png`
+   - **App URL**: `https://penkka.fi/?tv=vidaa`
+   - **Thumbnail URL**: `https://penkka.fi/vidaa-thumb.png`
+   - **Icon URL (Small)**: `https://penkka.fi/icon-192.png`
+   - **Icon URL (Large)**: `https://penkka.fi/icon-512.png`
 4. Click **Install** — MovieBox will be pinned to your Hisense VIDAA Home launcher.
 
 ## Option 3: Instant Fullscreen Launch (No Sideloading Needed)
-Bookmark **`https://<your-moviebox-domain>/?tv=vidaa`** in the Hisense VIDAA Browser — MovieBox automatically activates 10-foot VIDAA TV mode (`body.vidaa-tv`).
+Bookmark **`https://penkka.fi/?tv=vidaa`** in the Hisense VIDAA Browser — MovieBox automatically activates 10-foot VIDAA TV mode (`body.vidaa-tv`).
 
 ---
 

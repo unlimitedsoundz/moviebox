@@ -237,7 +237,8 @@
   </main>
 
   <script>
-    const origin = window.location.origin;
+    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(window.location.origin);
+    const origin = isLocal ? 'https://penkka.fi' : window.location.origin;
     const APP_ID = 'moviebox_vidaa_app';
     const APP_NAME = 'MovieBox';
     const APP_URL = `${origin}/?tv=vidaa`;
