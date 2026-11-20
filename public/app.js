@@ -146,9 +146,9 @@ function closeDialogs(){ $$('dialog[open]').forEach(d=>d.close());document.body.
 
 let adBlockerActive=localStorage.getItem('moviebox-adblock')!=='false';
 let blockedRedirectsCount=parseInt(localStorage.getItem('moviebox-adblock-count')||'0',10);
-const STREAM_SERVERS={vidfast:'VidFast',vidlink:'VidLink',cinesrc:'CineSrc'};
-let currentStreamServer=localStorage.getItem('moviebox-stream-server');
-if(!STREAM_SERVERS[currentStreamServer])currentStreamServer='vidfast';
+const STREAM_SERVERS={vidlink:'VidLink',vidfast:'VidFast',cinesrc:'CineSrc'};
+let currentStreamServer=localStorage.getItem('moviebox-stream-server-v2');
+if(!STREAM_SERVERS[currentStreamServer])currentStreamServer='vidlink';
 let lastAdblockToast=0, currentSeason=1, currentEpisode=1;
 
 function recordBlockedAd(reason='redirect'){
@@ -278,7 +278,13 @@ function stopPlayer(){
     }catch{}
   }
   const stage=$('#player-stage');
-  if(stage)stage.hidden=true;
+  if(stage){
+    stage.hidden=true;
+    stage.classList.remove('is-fullscreen');
+  }
+  document.body.classList.remove('player-fullscreen-mode');
+  const hud=$('#tv-player-hud');
+  if(hud)hud.classList.remove('hud-visible');
   if(document.fullscreenElement||document.webkitFullscreenElement){
     try{
       if(document.exitFullscreen)document.exitFullscreen().catch(()=>{});
@@ -301,7 +307,7 @@ function getStreamUrl(server,type,tmdbId,startAt=0,season=1,episode=1){
   const id = encodeURIComponent(tmdbId);
   const chosen = (server === 'cinesrc' || server === 'cinesrc-st')
     ? 'cinesrc'
-    : (STREAM_SERVERS[server] ? server : 'vidfast');
+    : (STREAM_SERVERS[server] ? server : 'vidlink');
   if(chosen === 'cinesrc'){
     const base = isTV
       ? `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}`
@@ -309,14 +315,15 @@ function getStreamUrl(server,type,tmdbId,startAt=0,season=1,episode=1){
     return resumeSec > 0 ? `${base}${isTV ? '&' : '?'}t=${resumeSec}&startAt=${resumeSec}` : base;
   }
   if(chosen === 'vidlink'){
+    const common = 'primaryColor=e50914&secondaryColor=181818&iconColor=ffffff&autoplay=true&title=true&poster=false&quality=1080&defaultQuality=1080&sub_lang=en&subtitle=en&defaultSubtitle=en&captions=en&lang=en';
     const base = isTV
-      ? `https://vidlink.pro/tv/${id}/${s}/${e}?primaryColor=e50914&secondaryColor=181818&iconColor=ffffff&autoplay=true&title=true&poster=true&nextbutton=true`
-      : `https://vidlink.pro/movie/${id}?primaryColor=e50914&secondaryColor=181818&iconColor=ffffff&autoplay=true&title=true&poster=true`;
-    return resumeSec > 0 ? `${base}&startAt=${resumeSec}&t=${resumeSec}` : base;
+      ? `https://vidlink.pro/tv/${id}/${s}/${e}?${common}&nextbutton=true`
+      : `https://vidlink.pro/movie/${id}?${common}`;
+    return resumeSec > 0 ? `${base}&start=${resumeSec}&startAt=${resumeSec}&t=${resumeSec}` : base;
   }
   const base = isTV
-    ? `https://vidfast.vc/tv/${id}/${s}/${e}?autoPlay=true`
-    : `https://vidfast.vc/movie/${id}?autoPlay=true`;
+    ? `https://vidfast.vc/tv/${id}/${s}/${e}?autoPlay=true&defaultQuality=1080&sub=en`
+    : `https://vidfast.vc/movie/${id}?autoPlay=true&defaultQuality=1080&sub=en`;
   return resumeSec > 0 ? `${base}&startAt=${resumeSec}&t=${resumeSec}` : base;
 }
 function getUniqueMovies(items){const seen=new Set();return(items||[]).filter(m=>{if(!m)return false;const key=(m.tmdbId?`${m.mediaType||'movie'}-${m.tmdbId}`:m.id)||(m.title&&m.year?`${m.title.toLowerCase()}-${m.year}`:m.title);if(seen.has(key))return false;seen.add(key);return true})}
@@ -885,6 +892,7 @@ function mountHeroTrailer(ctx){
 
 function scheduleHeroPreview(movie){
   stopHeroPreview();
+  if(document.body.classList.contains('vidaa-tv'))return;
   const heroSec=$('#hero-section');
   const wrap=$('#hero-video-wrap');
   const muteBtn=$('#hero-mute-btn');
@@ -939,7 +947,7 @@ window.addEventListener('message',event=>{
 });
 
 function showHoverCardFor(cardEl){
-  if(window.innerWidth<768)return;
+  if(window.innerWidth<768||document.body.classList.contains('vidaa-tv'))return;
   if(!cardEl||activePreviewCard===cardEl)return;
   const id=cardEl.dataset?.id;
   const movie=findMovieById(id);
@@ -1200,11 +1208,13 @@ function render(){
     const visibleHomeIds=[...new Set($$('#home-shelves .nf-card').map(el=>el.dataset.id))];
     const visibleHomeMovies=visibleHomeIds.map(id=>findMovieById(id)).filter(Boolean);
     hydrateLogosForMovies([...heroMovies,...visibleHomeMovies]);
-    // Pre-warm trailer keys for the first 8 visible landscape cards so previews start with zero API delay
-    const toWarm=visibleHomeMovies.slice(0,8);
-    setTimeout(()=>{
-      toWarm.forEach(m=>{if(m&&m.tmdbId)getTrailerCandidates(m).catch(()=>{})});
-    },600);
+    // Pre-warm trailer keys on desktop only (skipped on VIDAA TV for 60fps zero-lag scrolling)
+    if(!document.body.classList.contains('vidaa-tv')){
+      const toWarm=visibleHomeMovies.slice(0,8);
+      setTimeout(()=>{
+        toWarm.forEach(m=>{if(m&&m.tmdbId)getTrailerCandidates(m).catch(()=>{})});
+      },600);
+    }
   }
 }
 function renderPagination(){const nav=$('#pagination');if(!nav)return;nav.hidden=totalPages<=1;const start=Math.max(1,Math.min(currentPage-2,totalPages-4)),end=Math.min(totalPages,start+4);let html=`<button class="page-button" data-page="${currentPage-1}" ${currentPage===1?'disabled':''} aria-label="Previous page">${SVG_PREV}</button>`;for(let p=start;p<=end;p++)html+=`<button class="page-button ${p===currentPage?'current':''}" data-page="${p}" ${p===currentPage?'aria-current="page"':''}>${p}</button>`;html+=`<button class="page-button" data-page="${currentPage+1}" ${currentPage===totalPages?'disabled':''} aria-label="Next page">${SVG_NEXT}</button>`;nav.innerHTML=html;nav.querySelectorAll('[data-page]').forEach(b=>b.onclick=async()=>{const page=Number(b.dataset.page);if(page>=1&&page<=totalPages&&page!==currentPage){isListView=true;const q=searchInput?.value.trim()||'';await loadTMDBCatalog(q,page);scrollToList()}})}
@@ -1797,13 +1807,8 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   hidePauseOverlay();
   if(embedded){
     applyAdBlockerSandbox();
-    frame.setAttribute('tabindex','0');
+    frame.setAttribute('tabindex','-1');
     frame.referrerPolicy=currentStreamServer==='vidlink'?'origin':'no-referrer';
-    frame.onload=()=>{
-      if(isPlayerActive()&&!frame.hidden){
-        try{frame.focus({preventScroll:true})}catch{}
-      }
-    };
     const type=isTV?'tv':'movie';
     if($('#server-select'))$('#server-select').value=currentStreamServer;
     const sSel=$('#season-select'),eSel=$('#episode-select'),prevBtn=$('#player-prev-ep'),nextBtn=$('#player-next-ep'),skipBtn=$('#player-skip-intro');
@@ -1960,22 +1965,131 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   const stage=$('#player-stage');
   if(stage){
     stage.hidden=false;
-    stage.scrollIntoView({behavior:'auto',block:'start'});
   }
   if(!embedded)video.play().catch(()=>{});
-  setTimeout(()=>{
-    const targetPlayer=embedded?frame:video;
-    if(targetPlayer&&!targetPlayer.hidden){
-      try{targetPlayer.focus({preventScroll:true})}catch{}
-    }
-  },160);
+  enterFullscreenPlayer(movie);
 }
+
+const SVG_HUD_PAUSE=`<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
+const SVG_HUD_PLAY=`<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>`;
+
 let playerHasStarted=false;
+let hudIsPaused=false;
+let hudHideTimer=null;
+let hudLastTime=0;
+let hudLastDuration=0;
 let pendingResumeTarget=null;
+
+function isFullscreenPlayerActive(){
+  return document.body.classList.contains('player-fullscreen-mode')&&isPlayerActive();
+}
+
+function isTvHudVisible(){
+  return Boolean($('#tv-player-hud')?.classList.contains('hud-visible'));
+}
+
+function syncHudPlayIcon(){
+  const icon=$('#hud-play-icon');
+  if(icon)icon.innerHTML=hudIsPaused?SVG_HUD_PLAY:SVG_HUD_PAUSE;
+}
+
+function updateHudProgress(curSec,durSec){
+  const cur=Math.max(0,Math.floor(Number(curSec)||0));
+  const dur=Math.max(0,Math.floor(Number(durSec)||0));
+  hudLastTime=cur;
+  if(dur>0)hudLastDuration=dur;
+  const curEl=$('#hud-cur-time'),durEl=$('#hud-dur-time'),fillEl=$('#hud-bar-fill');
+  if(curEl)curEl.textContent=formatTimestamp(cur);
+  if(durEl)durEl.textContent=hudLastDuration>0?formatTimestamp(hudLastDuration):'--:--';
+  if(fillEl){
+    const pct=hudLastDuration>0?Math.min(100,Math.max(0,(cur/hudLastDuration)*100)):0;
+    fillEl.style.width=`${pct.toFixed(1)}%`;
+  }
+}
+
+function updateHudMeta(movie){
+  if(!movie)return;
+  const isTV=isTvSeries(movie);
+  const titleEl=$('#hud-title'),subEl=$('#hud-sub'),srvBtn=$('#hud-server-cycle');
+  const prevBtn=$('#hud-prev-ep'),nextBtn=$('#hud-next-ep'),skipBtn=$('#hud-skip-intro');
+  if(titleEl)titleEl.textContent=movie.title;
+  if(subEl){
+    const srvName=STREAM_SERVERS[currentStreamServer]||'VidLink';
+    subEl.textContent=isTV?`Season ${currentSeason} · Episode ${currentEpisode} · ${srvName} · Auto 1080p`:`${movie.year||''}${movie.duration?` · ${movie.duration}`:''} · ${srvName} · Auto 1080p`;
+  }
+  if(srvBtn)srvBtn.textContent=`Server: ${STREAM_SERVERS[currentStreamServer]||'VidLink'}`;
+  if(prevBtn)prevBtn.hidden=!isTV;
+  if(nextBtn)nextBtn.hidden=!isTV;
+  if(skipBtn)skipBtn.hidden=!isTV;
+  const prog=getResumeProgress(movie.id,isTV?currentSeason:undefined,isTV?currentEpisode:undefined);
+  updateHudProgress(prog.time||0,prog.duration||0);
+}
+
+function hideTvHud(){
+  clearTimeout(hudHideTimer);
+  const hud=$('#tv-player-hud');
+  if(hud)hud.classList.remove('hud-visible');
+}
+
+function showTvHud(focusTarget,autoHideMs=4500){
+  const hud=$('#tv-player-hud');
+  if(!hud||!isPlayerActive())return;
+  if(activeMovie)updateHudMeta(activeMovie);
+  syncHudPlayIcon();
+  hud.classList.add('hud-visible');
+  if(focusTarget&&!focusTarget.hidden){
+    try{focusTarget.focus({preventScroll:true})}catch{}
+    document.querySelectorAll('.tv-focus').forEach(x=>x.classList.remove('tv-focus'));
+    focusTarget.classList.add('tv-focus');
+  }
+  clearTimeout(hudHideTimer);
+  if(!hudIsPaused&&autoHideMs>0){
+    hudHideTimer=setTimeout(hideTvHud,autoHideMs);
+  }
+}
+
+function enterFullscreenPlayer(movie){
+  const stage=$('#player-stage');
+  if(!stage)return;
+  hudIsPaused=false;
+  hudLastTime=0;
+  hudLastDuration=0;
+  syncHudPlayIcon();
+  updateHudMeta(movie||activeMovie);
+  stage.hidden=false;
+  stage.classList.add('is-fullscreen');
+  document.body.classList.add('player-fullscreen-mode');
+  if(movie&&!window.location.hash.startsWith('#watch/')){
+    history.pushState({view:'player',id:movie.id},'',`#watch/${encodeURIComponent(movie.id)}`);
+  }
+  try{
+    if(!document.fullscreenElement&&!document.webkitFullscreenElement){
+      if(stage.requestFullscreen)stage.requestFullscreen().catch(()=>{});
+      else if(stage.webkitRequestFullscreen)stage.webkitRequestFullscreen();
+    }
+  }catch{}
+  setTimeout(()=>showTvHud($('#hud-play-pause'),4500),120);
+}
+
+function exitFullscreenPlayer({fromHistory=false}={}){
+  hideTvHud();
+  stopPlayer();
+  if(!fromHistory&&window.location.hash.startsWith('#watch/')){
+    history.back();
+  }
+  setTimeout(()=>{
+    const playBtn=$('#detail-play')||$('#detail-back');
+    if(playBtn){
+      try{playBtn.focus({preventScroll:true})}catch{}
+    }
+  },80);
+}
 
 function sendIframePlaybackCmd(frame,action){
   if(!frame?.contentWindow)return;
   const payloads=[
+    {event:'command',func:action},
+    {method:action},
     {type:action.toUpperCase()},
     {event:action},
     {action},
@@ -1987,13 +2101,90 @@ function sendIframePlaybackCmd(frame,action){
   }
 }
 
+function hudTogglePlayPause(forcePause){
+  if(!isPlayerActive())return;
+  const video=$('#video-player'),frame=$('#stream-player');
+  const nextPaused=typeof forcePause==='boolean'?forcePause:!hudIsPaused;
+  hudIsPaused=nextPaused;
+  syncHudPlayIcon();
+  if(video&&!video.hidden){
+    if(nextPaused)video.pause();
+    else video.play().catch(()=>{});
+  }else if(frame){
+    sendIframePlaybackCmd(frame,nextPaused?'pause':'play');
+  }
+  showTvHud($('#hud-play-pause'),nextPaused?0:4000);
+}
+
+let hudSeekReloadTimer=null;
+function hudSeekBy(deltaSec){
+  if(!isPlayerActive()||!activeMovie)return;
+  const video=$('#video-player'),frame=$('#stream-player');
+  if(video&&!video.hidden){
+    const target=Math.max(0,Math.min(video.duration||Infinity,(video.currentTime||0)+deltaSec));
+    video.currentTime=target;
+    updateHudProgress(target,video.duration||0);
+    showTvHud(deltaSec<0?$('#hud-rw'):$('#hud-ff'),4000);
+    notify(deltaSec>0?`⏩ +${deltaSec}s · ${formatTimestamp(target)}`:`⏪ ${deltaSec}s · ${formatTimestamp(target)}`);
+    return;
+  }
+  const isTV=isTvSeries(activeMovie);
+  const prog=getResumeProgress(activeMovie.id,isTV?currentSeason:undefined,isTV?currentEpisode:undefined);
+  const baseTime=Math.max(hudLastTime,Number(prog.time)||0);
+  const target=Math.max(0,baseTime+deltaSec);
+  updateHudProgress(target,hudLastDuration||prog.duration||0);
+  savePlaybackProgress(activeMovie.id,{
+    season:isTV?currentSeason:undefined,
+    episode:isTV?currentEpisode:undefined,
+    time:target,
+    duration:hudLastDuration||prog.duration||0,
+    completed:false
+  });
+  enforceIframeSeek(frame,target);
+  showTvHud(deltaSec<0?$('#hud-rw'):$('#hud-ff'),4000);
+  notify(deltaSec>0?`⏩ +${deltaSec}s · ${formatTimestamp(target)}`:`⏪ ${deltaSec}s · ${formatTimestamp(target)}`);
+  // Fallback: if VidLink/embed ignores postMessage seek, reload cleanly at the exact target timestamp
+  clearTimeout(hudSeekReloadTimer);
+  const beforeTick=hudLastTime;
+  hudSeekReloadTimer=setTimeout(()=>{
+    if(!isPlayerActive()||!activeMovie||!frame||frame.hidden)return;
+    if(Math.abs(hudLastTime-target)>6&&hudLastTime===beforeTick){
+      frame.src=getStreamUrl(currentStreamServer,isTV?'tv':'movie',activeMovie.tmdbId,target,currentSeason,currentEpisode);
+    }
+  },800);
+}
+
+$('#hud-back')?.addEventListener('click',()=>exitFullscreenPlayer());
+$('#hud-play-pause')?.addEventListener('click',()=>hudTogglePlayPause());
+$('#hud-rw')?.addEventListener('click',()=>hudSeekBy(-10));
+$('#hud-ff')?.addEventListener('click',()=>hudSeekBy(10));
+$('#hud-prev-ep')?.addEventListener('click',()=>{showTvHud($('#hud-prev-ep'),4000);$('#player-prev-ep')?.click()});
+$('#hud-next-ep')?.addEventListener('click',()=>{showTvHud($('#hud-next-ep'),4000);$('#player-next-ep')?.click()});
+$('#hud-skip-intro')?.addEventListener('click',()=>{showTvHud($('#hud-skip-intro'),4000);$('#player-skip-intro')?.click()});
+$('#hud-reload')?.addEventListener('click',()=>{showTvHud($('#hud-reload'),4000);$('#player-reload')?.click()});
+$('#hud-server-cycle')?.addEventListener('click',()=>{
+  const keys=Object.keys(STREAM_SERVERS);
+  const nextKey=keys[(keys.indexOf(currentStreamServer)+1)%keys.length];
+  currentStreamServer=nextKey;
+  localStorage.setItem('moviebox-stream-server-v2',currentStreamServer);
+  if($('#server-select'))$('#server-select').value=currentStreamServer;
+  notify(`Server: ${STREAM_SERVERS[currentStreamServer]}`);
+  if(activeMovie)playMovie(activeMovie);
+});
+
+$('.player-media-wrap')?.addEventListener('mousemove',()=>{
+  if(isFullscreenPlayerActive())showTvHud(null,3500);
+},{passive:true});
+
 function enforceIframeSeek(frame,targetSec){
   if(!frame?.contentWindow||!targetSec||targetSec<=0)return;
   const payloads=[
-    {type:'SEEK',time:targetSec},
+    {method:'seek',time:targetSec},
     {event:'seek',time:targetSec,currentTime:targetSec},
+    {type:'SEEK',time:targetSec},
     {action:'seek',time:targetSec},
-    {command:'seek',value:targetSec}
+    {command:'seek',value:targetSec},
+    {currentTime:targetSec}
   ];
   for(const p of payloads){
     try{frame.contentWindow.postMessage(p,'*')}catch{}
@@ -2124,13 +2315,18 @@ window.addEventListener('message',event=>{
 
   if(evtName==='play'||evtName==='playing'||(evtName==='timeupdate'&&Number.isFinite(seconds)&&seconds>1)||data.paused===false){
     playerHasStarted=true;
+    hudIsPaused=false;
+    syncHudPlayIcon();
     hidePauseOverlay();
   }else if(playerHasStarted&&(evtName==='pause'||evtName==='paused'||data.paused===true)){
-    showPauseOverlay();
+    hudIsPaused=true;
+    syncHudPlayIcon();
+    showTvHud($('#hud-play-pause'),0);
   }
 
   if(Number.isFinite(seconds)&&seconds>0){
     progressItems[activeMovie.id]=activeMovie;
+    updateHudProgress(seconds,Number.isFinite(duration)&&duration>0?duration:hudLastDuration);
     const isCompleted=data.player_status==='completed'||(Number.isFinite(duration)&&duration>0&&seconds>=duration-15);
     savePlaybackProgress(activeMovie.id,{
       season:isTV?currentSeason:undefined,
@@ -2483,6 +2679,7 @@ heroSection?.addEventListener('touchstart',stopHeroCarousel,{passive:true});
 heroSection?.addEventListener('touchend',startHeroCarousel,{passive:true});
 
 window.addEventListener('scroll',()=>{
+  if(document.body.classList.contains('vidaa-tv'))return;
   const bar=$('#topbar')||$('.topbar');
   if(bar)bar.classList.toggle('scrolled',window.scrollY>16);
 },{passive:true});
@@ -2550,11 +2747,15 @@ $('#detail-back')?.addEventListener('click',()=>{
 $('#player-close')?.addEventListener('click',stopPlayer);
 function handleRoute(){
   const hash=window.location.hash;
+  if(!hash.startsWith('#watch/')&&isFullscreenPlayerActive()){
+    exitFullscreenPlayer({fromHistory:true});
+    return;
+  }
   const modal=$('#more-info-modal');
   if(hash!=='#modal'&&modal&&modal.open){
     closeMoreInfoModal({fromHistory:true});
   }
-  if(hash==='#modal'){return}
+  if(hash==='#modal'||hash.startsWith('#watch/')){return}
   if(hash==='#my-list'){switchView('saved')}
   else if(hash==='#new-popular'){switchView('recent')}
   else if(hash==='#series'){switchView('tv')}
@@ -2657,68 +2858,29 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     '.nf-modal-ep-row'
   ].join(',');
 
-  let vScrollRaf=0,vTargetY=null;
-  let hScrollRaf=0,hActiveTrack=null,hTargetX=null;
-
-  function animateWindowScrollY(targetY,duration=320){
-    const startY=window.pageYOffset||document.documentElement.scrollTop||0;
+  function animateWindowScrollY(targetY){
     const maxY=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
-    const clampedY=Math.max(0,Math.min(maxY,targetY));
-    vTargetY=clampedY;
-    cancelAnimationFrame(vScrollRaf);
-    const delta=clampedY-startY;
-    if(Math.abs(delta)<2){vTargetY=null;return}
-    const startTime=performance.now();
-    const step=(now)=>{
-      const t=Math.min(1,(now-startTime)/duration);
-      const ease=1-Math.pow(1-t,4);
-      window.scrollTo(0,Math.round(startY+delta*ease));
-      if(t<1){vScrollRaf=requestAnimationFrame(step)}
-      else{vScrollRaf=0;vTargetY=null}
-    };
-    vScrollRaf=requestAnimationFrame(step);
+    const clampedY=Math.max(0,Math.min(maxY,Math.round(targetY)));
+    try{window.scrollTo({top:clampedY,behavior:'smooth'})}catch{window.scrollTo(0,clampedY)}
   }
 
-  function scrollPageByY(deltaY,duration=340){
+  function scrollPageByY(deltaY){
     const openDialog=document.querySelector('dialog[open]');
     if(openDialog){
-      const startTop=openDialog.scrollTop;
       const maxTop=Math.max(0,openDialog.scrollHeight-openDialog.clientHeight);
-      const targetTop=Math.max(0,Math.min(maxTop,startTop+deltaY));
-      const d=targetTop-startTop;
-      if(Math.abs(d)<2)return;
-      const t0=performance.now();
-      const tick=(now)=>{
-        const t=Math.min(1,(now-t0)/duration);
-        openDialog.scrollTop=Math.round(startTop+d*(1-Math.pow(1-t,4)));
-        if(t<1)requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
+      const targetTop=Math.max(0,Math.min(maxTop,Math.round(openDialog.scrollTop+deltaY)));
+      try{openDialog.scrollTo({top:targetTop,behavior:'smooth'})}catch{openDialog.scrollTop=targetTop}
       return;
     }
-    const base=vTargetY!==null?vTargetY:(window.pageYOffset||document.documentElement.scrollTop||0);
-    animateWindowScrollY(base+deltaY,duration);
+    const curY=window.pageYOffset||document.documentElement.scrollTop||0;
+    animateWindowScrollY(curY+deltaY);
   }
 
-  function animateTrackScrollX(track,targetX,duration=300){
+  function animateTrackScrollX(track,targetX){
     if(!track)return;
-    const startX=track.scrollLeft;
     const maxX=Math.max(0,track.scrollWidth-track.clientWidth);
-    const clampedX=Math.max(0,Math.min(maxX,targetX));
-    hActiveTrack=track;
-    hTargetX=clampedX;
-    cancelAnimationFrame(hScrollRaf);
-    const delta=clampedX-startX;
-    if(Math.abs(delta)<2){hTargetX=null;return}
-    const startTime=performance.now();
-    const step=(now)=>{
-      const t=Math.min(1,(now-startTime)/duration);
-      const ease=1-Math.pow(1-t,4);
-      track.scrollLeft=Math.round(startX+delta*ease);
-      if(t<1){hScrollRaf=requestAnimationFrame(step)}
-      else{hScrollRaf=0;hTargetX=null;hActiveTrack=null}
-    };
-    hScrollRaf=requestAnimationFrame(step);
+    const clampedX=Math.max(0,Math.min(maxX,Math.round(targetX)));
+    try{track.scrollTo({left:clampedX,behavior:'smooth'})}catch{track.scrollLeft=clampedX}
   }
 
   function smoothFocusScroll(el,dir){
@@ -2733,12 +2895,12 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     if(track&&(dir==='left'||dir==='right')){
       const tRect=track.getBoundingClientRect();
       const targetX=track.scrollLeft+(rect.left-tRect.left)-(tRect.width-rect.width)/2;
-      animateTrackScrollX(track,targetX,300);
+      animateTrackScrollX(track,targetX);
     }
     if(dir==='up'||dir==='down'||!track){
       const currentY=window.pageYOffset||document.documentElement.scrollTop||0;
       const targetY=currentY+rect.top-(window.innerHeight-rect.height)/2;
-      animateWindowScrollY(targetY,320);
+      animateWindowScrollY(targetY);
     }
   }
 
@@ -2759,6 +2921,10 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
   }
 
   function getNavScope(){
+    if(isFullscreenPlayerActive()){
+      const hud=$('#tv-player-hud');
+      if(hud)return hud;
+    }
     const openDialog=document.querySelector('dialog[open]');
     if(openDialog)return openDialog;
     return document.body;
@@ -2843,6 +3009,10 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
   }
 
   function handleTvBack(){
+    if(isFullscreenPlayerActive()){
+      exitFullscreenPlayer();
+      return true;
+    }
     const frame=$('#stream-player');
     if(document.activeElement===frame){try{frame.blur()}catch{}}
     const modal=$('#more-info-modal');
@@ -2871,14 +3041,14 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     return false;
   }
 
-  // 1. Capture-phase Hisense VIDAA Remote Handler (Back, Channel Scroll, Color Keys & Spatial D-Pad)
+  // 1. Capture-phase Hisense VIDAA Remote Handler (Back, Fullscreen Netflix HUD, Channel Scroll & D-Pad)
   window.addEventListener('keydown',e=>{
     const activeEl=document.activeElement;
     const tag=activeEl?.tagName;
     const isTyping=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
     const kc=e.keyCode||e.which||0;
 
-    // A. VIDAA / Smart TV Remote BACK button (all known keycodes + key names, capture phase)
+    // A. VIDAA / Smart TV Remote BACK button (always exits fullscreen first, then modal/detail/view)
     const isBackKey=(
       kc===461||kc===10009||kc===166||kc===27||
       (kc===8&&!isTyping)||
@@ -2893,61 +3063,87 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
       return;
     }
 
-    // B. Hisense Remote CHANNEL UP / CHANNEL DOWN for fluid vertical scrolling
+    // B. Fullscreen Netflix-Style TV Player HUD Remote Control
+    if(isFullscreenPlayerActive()){
+      const dirMap={ArrowRight:'right',ArrowLeft:'left',ArrowDown:'down',ArrowUp:'up'};
+      const dir=dirMap[e.key];
+      const isOk=e.key==='Enter'||kc===13||e.key===' ';
+      // Hardware media keys (Play, Pause, Stop, Rewind, FastForward)
+      if(kc===413){e.preventDefault();e.stopPropagation();exitFullscreenPlayer();return}
+      if(kc===415||kc===19||kc===179||e.key==='MediaPlayPause'){
+        e.preventDefault();e.stopPropagation();
+        if(kc===19)hudTogglePlayPause(true);
+        else if(kc===415)hudTogglePlayPause(false);
+        else hudTogglePlayPause();
+        return;
+      }
+      if(kc===412){e.preventDefault();e.stopPropagation();hudSeekBy(-10);return}
+      if(kc===417){e.preventDefault();e.stopPropagation();hudSeekBy(10);return}
+
+      if(!isTvHudVisible()){
+        if(isOk){
+          e.preventDefault();e.stopPropagation();
+          hudTogglePlayPause();
+          return;
+        }
+        if(dir==='left'){
+          e.preventDefault();e.stopPropagation();
+          hudSeekBy(-10);
+          return;
+        }
+        if(dir==='right'){
+          e.preventDefault();e.stopPropagation();
+          hudSeekBy(10);
+          return;
+        }
+        if(dir==='up'||dir==='down'){
+          e.preventDefault();e.stopPropagation();
+          showTvHud($('#hud-play-pause'),4500);
+          return;
+        }
+        return;
+      }
+
+      // HUD is visible: D-Pad navigates seamlessly between Back, -10s, Play/Pause, +10s, Prev/Next Ep, Server
+      if(dir){
+        e.preventDefault();e.stopPropagation();
+        const hud=$('#tv-player-hud');
+        const curInHud=activeEl&&hud?.contains(activeEl)?activeEl:$('#hud-play-pause');
+        const next=findNextSpatialTarget(curInHud,dir);
+        if(next&&hud?.contains(next)){
+          showTvHud(next,4500);
+        }else{
+          showTvHud(curInHud,4500);
+        }
+        return;
+      }
+      if(isOk){
+        e.preventDefault();e.stopPropagation();
+        const hud=$('#tv-player-hud');
+        const target=(activeEl&&hud?.contains(activeEl))?activeEl:$('#hud-play-pause');
+        target?.click();
+        return;
+      }
+      return;
+    }
+
+    // C. Hisense Remote CHANNEL UP / CHANNEL DOWN for smooth vertical scrolling
     const isChUp=kc===427||kc===33||e.key==='ChannelUp'||e.key==='PageUp';
     const isChDown=kc===428||kc===34||e.key==='ChannelDown'||e.key==='PageDown';
     if((isChUp||isChDown)&&!isTyping){
       e.preventDefault();
       e.stopPropagation();
       const step=Math.round(window.innerHeight*0.72);
-      const frame=$('#stream-player'),video=$('#video-player');
-      const playerEl=(frame&&!frame.hidden)?frame:((video&&!video.hidden)?video:null);
-      if(isChDown){
-        if(activeEl===playerEl&&playerEl){
-          try{playerEl.blur()}catch{}
-          scrollPageByY(step,340);
-          const firstBelow=$('#server-select')||$('#player-reload')||$('#detail-play');
-          if(firstBelow&&isElementVisible(firstBelow)){
-            firstBelow.focus({preventScroll:true});
-            setTvFocusRing(firstBelow);
-          }
-          return;
-        }
-        scrollPageByY(step,340);
-      }else{
-        const curY=window.pageYOffset||document.documentElement.scrollTop||0;
-        scrollPageByY(-step,340);
-        if(currentView==='detail'&&isPlayerActive()&&playerEl&&curY-step<=100){
-          setTimeout(()=>{
-            try{playerEl.focus({preventScroll:true})}catch{}
-            setTvFocusRing(null);
-          },160);
-        }
-      }
+      scrollPageByY(isChDown?step:-step);
       return;
     }
 
-    // C. When focus is inside the built-in video player (#stream-player / #video-player),
-    //    let ALL D-Pad arrows & OK pass directly to the server's native player controls!
-    const frame=$('#stream-player'),video=$('#video-player');
-    if(activeEl===frame||activeEl===video){
-      if(kc===413&&isPlayerActive()){e.preventDefault();stopPlayer()}
-      return;
-    }
-
-    // D. Hisense VIDAA Remote Color & Hardware Media Shortcuts
+    // D. Hisense VIDAA Remote Color Shortcuts
     if(!isTyping){
       if(kc===403){e.preventDefault();openSearch();return}
       if(kc===404){e.preventDefault();history.pushState(null,'','#my-list');switchView('saved');return}
       if(kc===405){e.preventDefault();history.pushState(null,'','#films');switchView('movies');return}
       if(kc===406){e.preventDefault();history.pushState(null,'','#series');switchView('tv');return}
-      if(kc===413&&isPlayerActive()){e.preventDefault();stopPlayer();return}
-      // OK / Enter while pause overlay is visible dismisses overlay & resumes built-in player
-      if((e.key==='Enter'||kc===13)&&isPlayerActive()&&!$('#player-pause-overlay')?.hidden){
-        e.preventDefault();
-        $('#player-pause-overlay')?.click();
-        return;
-      }
     }
 
     // E. 4-Way Spatial D-Pad Navigation across menus, rows, modals & episodes
@@ -2959,21 +3155,6 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
 
     const current=activeEl&&activeEl!==document.body?activeEl:lastTvFocused;
     const next=findNextSpatialTarget(current,dir);
-
-    // Pressing Up from top player controls returns focus directly into the built-in video player
-    if(dir==='up'&&currentView==='detail'&&isPlayerActive()){
-      const playerEl=(frame&&!frame.hidden)?frame:((video&&!video.hidden)?video:null);
-      const curInControls=Boolean(current?.closest?.('.player-controls, .detail-hero, .detail-seasons-section'));
-      const nextAbovePlayer=Boolean(next?.closest?.('.topbar, .detail-topbar'));
-      if(playerEl&&(curInControls&&(!next||nextAbovePlayer))){
-        e.preventDefault();
-        animateWindowScrollY(0,300);
-        setTvFocusRing(null);
-        try{playerEl.focus({preventScroll:true})}catch{}
-        return;
-      }
-    }
-
     if(!next)return;
     e.preventDefault();
     next.focus({preventScroll:true});
@@ -2997,7 +3178,7 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
 $('#player-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));
 $('#top-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));
 $('#adblock-setting-toggle')?.addEventListener('change',e=>setAdBlocker(e.target.checked));
-$('#server-select')?.addEventListener('change',e=>{currentStreamServer=STREAM_SERVERS[e.target.value]?e.target.value:'vidfast';localStorage.setItem('moviebox-stream-server',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||STREAM_SERVERS[currentStreamServer]}`);playMovie(activeMovie)}});
+$('#server-select')?.addEventListener('change',e=>{currentStreamServer=STREAM_SERVERS[e.target.value]?e.target.value:'vidlink';localStorage.setItem('moviebox-stream-server-v2',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||STREAM_SERVERS[currentStreamServer]}`);playMovie(activeMovie)}});
 $('#player-reload')?.addEventListener('click',()=>{if(activeMovie&&isPlayerActive()){notify('↻ Reloading stream with Ad Shield active…');playMovie(activeMovie)}});
 document.addEventListener('keydown',e=>{if(e.key==='/'&&!e.metaKey&&!e.ctrlKey&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();openSearch()}if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&isPlayerActive()&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();toggleFullscreen()}});
 applyAdBlockerSandbox();
