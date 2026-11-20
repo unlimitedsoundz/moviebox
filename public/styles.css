@@ -745,8 +745,7 @@ body {
 
 .nf-row-section {
   position: relative;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 270px;
+  contain: layout style;
 }
 
 .nf-row-header {
@@ -781,6 +780,7 @@ body {
   scrollbar-width: none;
   padding: 6px var(--gutter) 12px;
   -webkit-overflow-scrolling: touch;
+  will-change: scroll-position;
 }
 
 .nf-row-track::-webkit-scrollbar {
@@ -1772,6 +1772,13 @@ dialog::backdrop {
   display: none !important;
 }
 
+#stream-player:focus,
+#stream-player:focus-visible,
+#video-player:focus,
+#video-player:focus-visible {
+  outline: none;
+}
+
 /* Player Controls Section */
 .player-controls {
   display: flex;
@@ -1860,32 +1867,6 @@ dialog::backdrop {
 .player-action-button:disabled {
   opacity: 0.38;
   cursor: not-allowed;
-}
-
-.player-action-button.play-pause-btn {
-  background: #ffffff;
-  border: 1px solid #ffffff;
-  color: #000000;
-  font-weight: 700;
-  padding: 0 22px;
-}
-
-.player-action-button.play-pause-btn:hover,
-.player-action-button.play-pause-btn:focus-visible {
-  background: rgba(255, 255, 255, 0.86);
-  color: #000000;
-}
-
-.player-action-button.seek-btn {
-  background: #222222;
-  border: 1px solid #3c3c3c;
-  color: #ffffff;
-}
-
-.player-action-button.seek-btn:hover,
-.player-action-button.seek-btn:focus-visible {
-  background: #2e2e2e;
-  border-color: #ffffff;
 }
 
 .player-action-button.ep-nav-btn {

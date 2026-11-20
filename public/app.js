@@ -987,18 +987,22 @@ function showHoverCardFor(cardEl){
 }
 
 (function initHoverPopoverListeners(){
-  let scrollHideRaf=0;
+  let heroScrollTimer=null;
+  let heroPausedByScroll=false;
   window.addEventListener('scroll',()=>{
-    if(scrollHideRaf)return;
-    scrollHideRaf=requestAnimationFrame(()=>{
-      scrollHideRaf=0;
-      if(activeHoverId)hideHoverCard();
-      // Pause hero video decode when scrolled past hero for silky-smooth TV scrolling
-      if(activeHeroContext?.iframe&&!$('#hero-section')?.hidden){
-        if(window.scrollY>520)sendYtCommand(activeHeroContext.iframe,'pauseVideo');
-        else if(!activeHoverId)sendYtCommand(activeHeroContext.iframe,'playVideo');
+    if(activeHoverId)hideHoverCard();
+    clearTimeout(heroScrollTimer);
+    heroScrollTimer=setTimeout(()=>{
+      if(!activeHeroContext?.iframe||$('#hero-section')?.hidden)return;
+      const pastHero=window.scrollY>520;
+      if(pastHero&&!heroPausedByScroll){
+        heroPausedByScroll=true;
+        sendYtCommand(activeHeroContext.iframe,'pauseVideo');
+      }else if(!pastHero&&heroPausedByScroll&&!activeHoverId){
+        heroPausedByScroll=false;
+        sendYtCommand(activeHeroContext.iframe,'playVideo');
       }
-    });
+    },150);
   },{passive:true});
 })();
 
@@ -1788,14 +1792,18 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   $('#player-title').textContent=movie.title;
   $('#player-subtitle').textContent=isTV?`Season ${currentSeason} · Episode ${currentEpisode}${movie.year?` · ${movie.year}`:''}`:`${movie.tag?'A MovieBox Original · ':''}${movie.year||''}${movie.duration?` · ${movie.duration}`:''}`;
   playerHasStarted=false;
-  playerIsPaused=false;
-  syncPlayPauseBtn();
   pendingResumeTarget=resumeTime>5?{movieId:movie.id,time:resumeTime,startedAt:Date.now(),seekAttempts:0}:null;
   populatePauseOverlay(movie);
   hidePauseOverlay();
   if(embedded){
     applyAdBlockerSandbox();
+    frame.setAttribute('tabindex','0');
     frame.referrerPolicy=currentStreamServer==='vidlink'?'origin':'no-referrer';
+    frame.onload=()=>{
+      if(isPlayerActive()&&!frame.hidden){
+        try{frame.focus({preventScroll:true})}catch{}
+      }
+    };
     const type=isTV?'tv':'movie';
     if($('#server-select'))$('#server-select').value=currentStreamServer;
     const sSel=$('#season-select'),eSel=$('#episode-select'),prevBtn=$('#player-prev-ep'),nextBtn=$('#player-next-ep'),skipBtn=$('#player-skip-intro');
@@ -1955,26 +1963,15 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
     stage.scrollIntoView({behavior:'auto',block:'start'});
   }
   if(!embedded)video.play().catch(()=>{});
-  if(document.body.classList.contains('vidaa-tv')){
-    setTimeout(()=>{
-      const pp=$('#player-play-pause');
-      if(pp&&!pp.hidden){
-        pp.focus({preventScroll:true});
-        pp.classList.add('tv-focus');
-      }
-    },180);
-  }
+  setTimeout(()=>{
+    const targetPlayer=embedded?frame:video;
+    if(targetPlayer&&!targetPlayer.hidden){
+      try{targetPlayer.focus({preventScroll:true})}catch{}
+    }
+  },160);
 }
-const SVG_PAUSE=`<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
 let playerHasStarted=false;
-let playerIsPaused=false;
 let pendingResumeTarget=null;
-
-function syncPlayPauseBtn(){
-  const iconEl=$('#player-play-pause-icon'),labelEl=$('#player-play-pause-label');
-  if(iconEl)iconEl.innerHTML=playerIsPaused?SVG_PLAY:SVG_PAUSE;
-  if(labelEl)labelEl.textContent=playerIsPaused?'Play':'Pause';
-}
 
 function sendIframePlaybackCmd(frame,action){
   if(!frame?.contentWindow)return;
@@ -1989,57 +1986,6 @@ function sendIframePlaybackCmd(frame,action){
     try{frame.contentWindow.postMessage(JSON.stringify(p),'*')}catch{}
   }
 }
-
-function togglePlayerPlayPause(forceState){
-  if(!isPlayerActive())return;
-  const video=$('#video-player'),frame=$('#stream-player');
-  const nextPaused=typeof forceState==='boolean'?forceState:!playerIsPaused;
-  if(video&&!video.hidden){
-    if(nextPaused)video.pause();
-    else video.play().catch(()=>{});
-    playerIsPaused=nextPaused;
-    syncPlayPauseBtn();
-    return;
-  }
-  playerIsPaused=nextPaused;
-  syncPlayPauseBtn();
-  if(nextPaused){
-    playerHasStarted=true;
-    sendIframePlaybackCmd(frame,'pause');
-    showPauseOverlay();
-  }else{
-    sendIframePlaybackCmd(frame,'play');
-    hidePauseOverlay();
-  }
-}
-
-function seekPlayerBy(deltaSec){
-  if(!isPlayerActive()||!activeMovie)return;
-  const video=$('#video-player'),frame=$('#stream-player');
-  if(video&&!video.hidden){
-    const target=Math.max(0,Math.min(video.duration||Infinity,(video.currentTime||0)+deltaSec));
-    video.currentTime=target;
-    notify(deltaSec>0?`⏩ +${deltaSec}s`:`⏪ ${deltaSec}s`);
-    return;
-  }
-  const isTV=isTvSeries(activeMovie);
-  const prog=getResumeProgress(activeMovie.id,isTV?currentSeason:undefined,isTV?currentEpisode:undefined);
-  const cur=Number(prog.time)||0;
-  const target=Math.max(0,cur+deltaSec);
-  savePlaybackProgress(activeMovie.id,{
-    season:isTV?currentSeason:undefined,
-    episode:isTV?currentEpisode:undefined,
-    time:target,
-    duration:prog.duration||0,
-    completed:false
-  });
-  enforceIframeSeek(frame,target);
-  notify(deltaSec>0?`⏩ +${deltaSec}s · ${formatTimestamp(target)}`:`⏪ ${deltaSec}s · ${formatTimestamp(target)}`);
-}
-
-$('#player-play-pause')?.addEventListener('click',()=>togglePlayerPlayPause());
-$('#player-rw')?.addEventListener('click',()=>seekPlayerBy(-10));
-$('#player-ff')?.addEventListener('click',()=>seekPlayerBy(10));
 
 function enforceIframeSeek(frame,targetSec){
   if(!frame?.contentWindow||!targetSec||targetSec<=0)return;
@@ -2115,7 +2061,14 @@ function hidePauseOverlay(){
 }
 
 $('#player-pause-overlay')?.addEventListener('click',()=>{
-  togglePlayerPlayPause(false);
+  hidePauseOverlay();
+  const video=$('#video-player'),frame=$('#stream-player');
+  if(video&&!video.hidden){
+    video.play().catch(()=>{});
+  }else if(frame){
+    sendIframePlaybackCmd(frame,'play');
+    try{frame.focus({preventScroll:true})}catch{}
+  }
 });
 
 window.addEventListener('message',event=>{
@@ -2171,12 +2124,8 @@ window.addEventListener('message',event=>{
 
   if(evtName==='play'||evtName==='playing'||(evtName==='timeupdate'&&Number.isFinite(seconds)&&seconds>1)||data.paused===false){
     playerHasStarted=true;
-    playerIsPaused=false;
-    syncPlayPauseBtn();
     hidePauseOverlay();
   }else if(playerHasStarted&&(evtName==='pause'||evtName==='paused'||data.paused===true)){
-    playerIsPaused=true;
-    syncPlayPauseBtn();
     showPauseOverlay();
   }
 
@@ -2201,7 +2150,7 @@ function stopModalPreview(){
   if(muteBtn)muteBtn.hidden=true;
 }
 
-function closeMoreInfoModal(){
+function closeMoreInfoModal({fromHistory=false}={}){
   stopModalPreview();
   activeModalMovie=null;
   const modal=$('#more-info-modal');
@@ -2209,6 +2158,9 @@ function closeMoreInfoModal(){
   if(!$$('dialog[open]').length)document.body.classList.remove('dialog-open');
   if(activeHeroContext?.iframe&&!$('#hero-section')?.hidden){
     sendYtCommand(activeHeroContext.iframe,'playVideo');
+  }
+  if(!fromHistory&&window.location.hash==='#modal'){
+    history.back();
   }
 }
 
@@ -2386,6 +2338,9 @@ function openMoreInfoModal(movie){
   if(epSec)epSec.hidden=!isTV;
 
   showDialog(modal);
+  if(window.location.hash!=='#modal'){
+    history.pushState({view:'modal',id:movie.id},'','#modal');
+  }
   modal.scrollTop=0;
   setTimeout(()=>{
     const mp=$('#modal-play');
@@ -2583,10 +2538,40 @@ $$('[data-view]').forEach(link=>link.addEventListener('click',e=>{
   }
 }));
 $('#my-list-browse-btn')?.addEventListener('click',()=>{history.pushState(null,'','#home');switchView('home')});
-$('#detail-back')?.addEventListener('click',()=>{stopPlayer();if(window.history.length>1&&window.location.hash.startsWith('#title/')){history.back()}else{history.pushState(null,'','#home');switchView('home')}});
+$('#detail-back')?.addEventListener('click',()=>{
+  stopPlayer();
+  if(window.history.length>1&&window.location.hash.startsWith('#title/')){
+    history.back();
+  }else{
+    history.pushState(null,'','#home');
+    switchView('home');
+  }
+});
 $('#player-close')?.addEventListener('click',stopPlayer);
-function handleRoute(){const hash=window.location.hash;if(hash==='#my-list'){switchView('saved')}else if(hash==='#new-popular'){switchView('recent')}else if(hash==='#series'){switchView('tv')}else if(hash==='#films'){switchView('movies')}else if(hash.startsWith('#title/')){const id=decodeURIComponent(hash.slice('#title/'.length));const movie=findMovieById(id);if(movie)openDetailPage(movie,{skipPush:true});else switchView('home')}else if(hash==='#home'||!hash){if(currentView!=='home')switchView('home')}else if(hash==='#discover'){if(currentView==='saved'||currentView==='detail')switchView('discover')}}
+function handleRoute(){
+  const hash=window.location.hash;
+  const modal=$('#more-info-modal');
+  if(hash!=='#modal'&&modal&&modal.open){
+    closeMoreInfoModal({fromHistory:true});
+  }
+  if(hash==='#modal'){return}
+  if(hash==='#my-list'){switchView('saved')}
+  else if(hash==='#new-popular'){switchView('recent')}
+  else if(hash==='#series'){switchView('tv')}
+  else if(hash==='#films'){switchView('movies')}
+  else if(hash.startsWith('#title/')){
+    const id=decodeURIComponent(hash.slice('#title/'.length));
+    const movie=findMovieById(id);
+    if(movie)openDetailPage(movie,{skipPush:true});
+    else switchView('home');
+  }else if(hash==='#home'||!hash){
+    if(currentView!=='home')switchView('home');
+  }else if(hash==='#discover'){
+    if(currentView==='saved'||currentView==='detail')switchView('discover');
+  }
+}
 window.addEventListener('hashchange',handleRoute);
+window.addEventListener('popstate',handleRoute);
 $('#server-settings').onclick=()=>{const cfg=JSON.parse(localStorage.getItem('wath32-server')||'{}');$('#server-url').value=cfg.url||'';$('#server-token').value=cfg.token||'';showDialog($('#server-dialog'))};$('#server-form').onsubmit=async e=>{e.preventDefault();const url=$('#server-url').value.trim(),token=$('#server-token').value.trim();if(!url){localStorage.removeItem('wath32-server');catalog=[...movies];refreshFilterOptions();$('#server-dialog').close();render();loadInternetArchive();return}localStorage.setItem('wath32-server',JSON.stringify({url,token}));try{const res=await fetch(url,{headers:token?{Authorization:`Bearer ${token}`}:{}});if(!res.ok)throw Error(`Server returned ${res.status}`);const data=await res.json();if(!Array.isArray(data))throw Error('Catalog response must be a JSON array');catalog=data.map((m,i)=>({...m,id:String(m.id??`server-${i}`),year:Number(m.year)||2025,rating:Number(m.rating)||0,genre:m.genre||'Film',duration:m.duration||'',description:m.description||'',poster:m.poster||'',videoUrl:m.videoUrl||'',subtitlesUrl:m.subtitlesUrl||''}));currentPage=1;totalPages=1;totalResults=catalog.length;refreshFilterOptions();$('#server-dialog').close();render();notify(`Connected · ${catalog.length} titles`)}catch(err){notify(`Couldn’t connect: ${err.message}`)}};
 function formatDuration(value){if(!value)return'';const mins=Math.round(parseFloat(String(value).replace(/[^0-9.]/g,''))*60);return Number.isFinite(mins)&&mins?`${Math.floor(mins/60)}h ${mins%60}m`:String(value)}
 function stripHtml(value){if(!value)return'';const el=document.createElement('div');el.innerHTML=String(value);return(el.textContent||'').trim().slice(0,600)}
@@ -2672,39 +2657,66 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     '.nf-modal-ep-row'
   ].join(',');
 
-  let vScrollRaf=0,hScrollRaf=0;
+  let vScrollRaf=0,vTargetY=null;
+  let hScrollRaf=0,hActiveTrack=null,hTargetX=null;
 
-  function animateWindowScrollY(targetY,duration=220){
-    cancelAnimationFrame(vScrollRaf);
+  function animateWindowScrollY(targetY,duration=320){
     const startY=window.pageYOffset||document.documentElement.scrollTop||0;
     const maxY=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
     const clampedY=Math.max(0,Math.min(maxY,targetY));
+    vTargetY=clampedY;
+    cancelAnimationFrame(vScrollRaf);
     const delta=clampedY-startY;
-    if(Math.abs(delta)<2)return;
+    if(Math.abs(delta)<2){vTargetY=null;return}
     const startTime=performance.now();
     const step=(now)=>{
       const t=Math.min(1,(now-startTime)/duration);
-      const ease=1-Math.pow(1-t,3);
+      const ease=1-Math.pow(1-t,4);
       window.scrollTo(0,Math.round(startY+delta*ease));
-      if(t<1)vScrollRaf=requestAnimationFrame(step);
+      if(t<1){vScrollRaf=requestAnimationFrame(step)}
+      else{vScrollRaf=0;vTargetY=null}
     };
     vScrollRaf=requestAnimationFrame(step);
   }
 
-  function animateTrackScrollX(track,targetX,duration=200){
-    cancelAnimationFrame(hScrollRaf);
+  function scrollPageByY(deltaY,duration=340){
+    const openDialog=document.querySelector('dialog[open]');
+    if(openDialog){
+      const startTop=openDialog.scrollTop;
+      const maxTop=Math.max(0,openDialog.scrollHeight-openDialog.clientHeight);
+      const targetTop=Math.max(0,Math.min(maxTop,startTop+deltaY));
+      const d=targetTop-startTop;
+      if(Math.abs(d)<2)return;
+      const t0=performance.now();
+      const tick=(now)=>{
+        const t=Math.min(1,(now-t0)/duration);
+        openDialog.scrollTop=Math.round(startTop+d*(1-Math.pow(1-t,4)));
+        if(t<1)requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      return;
+    }
+    const base=vTargetY!==null?vTargetY:(window.pageYOffset||document.documentElement.scrollTop||0);
+    animateWindowScrollY(base+deltaY,duration);
+  }
+
+  function animateTrackScrollX(track,targetX,duration=300){
     if(!track)return;
     const startX=track.scrollLeft;
     const maxX=Math.max(0,track.scrollWidth-track.clientWidth);
     const clampedX=Math.max(0,Math.min(maxX,targetX));
+    hActiveTrack=track;
+    hTargetX=clampedX;
+    cancelAnimationFrame(hScrollRaf);
     const delta=clampedX-startX;
-    if(Math.abs(delta)<2)return;
+    if(Math.abs(delta)<2){hTargetX=null;return}
     const startTime=performance.now();
     const step=(now)=>{
       const t=Math.min(1,(now-startTime)/duration);
-      const ease=1-Math.pow(1-t,3);
+      const ease=1-Math.pow(1-t,4);
       track.scrollLeft=Math.round(startX+delta*ease);
-      if(t<1)hScrollRaf=requestAnimationFrame(step);
+      if(t<1){hScrollRaf=requestAnimationFrame(step)}
+      else{hScrollRaf=0;hTargetX=null;hActiveTrack=null}
     };
     hScrollRaf=requestAnimationFrame(step);
   }
@@ -2721,12 +2733,12 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     if(track&&(dir==='left'||dir==='right')){
       const tRect=track.getBoundingClientRect();
       const targetX=track.scrollLeft+(rect.left-tRect.left)-(tRect.width-rect.width)/2;
-      animateTrackScrollX(track,targetX,200);
+      animateTrackScrollX(track,targetX,300);
     }
     if(dir==='up'||dir==='down'||!track){
       const currentY=window.pageYOffset||document.documentElement.scrollTop||0;
       const targetY=currentY+rect.top-(window.innerHeight-rect.height)/2;
-      animateWindowScrollY(targetY,230);
+      animateWindowScrollY(targetY,320);
     }
   }
 
@@ -2830,65 +2842,144 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     },350);
   }
 
-  // 1. D-Pad 4-way Spatial Navigation + Hisense VIDAA Remote Keycodes
-  document.addEventListener('keydown',e=>{
-    const tag=document.activeElement?.tagName;
+  function handleTvBack(){
+    const frame=$('#stream-player');
+    if(document.activeElement===frame){try{frame.blur()}catch{}}
+    const modal=$('#more-info-modal');
+    if(modal&&modal.open){closeMoreInfoModal();return true}
+    if(activeHoverId){hideHoverCard();return true}
+    if(searchBox?.classList.contains('open')){closeSearch();return true}
+    if(currentView==='detail'){
+      stopPlayer();
+      if(window.history.length>1&&window.location.hash.startsWith('#title/')){
+        history.back();
+      }else{
+        history.pushState(null,'','#home');
+        switchView('home');
+      }
+      return true;
+    }
+    if(currentView!=='home'){
+      history.pushState(null,'','#home');
+      switchView('home');
+      return true;
+    }
+    if(isVidaaTv&&typeof window.Hisense_Exit==='function'){
+      try{window.Hisense_Exit()}catch{}
+      return true;
+    }
+    return false;
+  }
+
+  // 1. Capture-phase Hisense VIDAA Remote Handler (Back, Channel Scroll, Color Keys & Spatial D-Pad)
+  window.addEventListener('keydown',e=>{
+    const activeEl=document.activeElement;
+    const tag=activeEl?.tagName;
     const isTyping=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
     const kc=e.keyCode||e.which||0;
 
-    // Hisense VIDAA Remote Color Shortcuts (Red=Search, Green=My List, Yellow=Films, Blue=Series)
+    // A. VIDAA / Smart TV Remote BACK button (all known keycodes + key names, capture phase)
+    const isBackKey=(
+      kc===461||kc===10009||kc===166||kc===27||
+      (kc===8&&!isTyping)||
+      e.key==='Escape'||e.key==='BrowserBack'||e.key==='GoBack'||e.key==='Back'||e.key==='XF86Back'||
+      (e.key==='Backspace'&&!isTyping)
+    )&&!e.metaKey&&!e.ctrlKey;
+    if(isBackKey){
+      if(handleTvBack()){
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
+
+    // B. Hisense Remote CHANNEL UP / CHANNEL DOWN for fluid vertical scrolling
+    const isChUp=kc===427||kc===33||e.key==='ChannelUp'||e.key==='PageUp';
+    const isChDown=kc===428||kc===34||e.key==='ChannelDown'||e.key==='PageDown';
+    if((isChUp||isChDown)&&!isTyping){
+      e.preventDefault();
+      e.stopPropagation();
+      const step=Math.round(window.innerHeight*0.72);
+      const frame=$('#stream-player'),video=$('#video-player');
+      const playerEl=(frame&&!frame.hidden)?frame:((video&&!video.hidden)?video:null);
+      if(isChDown){
+        if(activeEl===playerEl&&playerEl){
+          try{playerEl.blur()}catch{}
+          scrollPageByY(step,340);
+          const firstBelow=$('#server-select')||$('#player-reload')||$('#detail-play');
+          if(firstBelow&&isElementVisible(firstBelow)){
+            firstBelow.focus({preventScroll:true});
+            setTvFocusRing(firstBelow);
+          }
+          return;
+        }
+        scrollPageByY(step,340);
+      }else{
+        const curY=window.pageYOffset||document.documentElement.scrollTop||0;
+        scrollPageByY(-step,340);
+        if(currentView==='detail'&&isPlayerActive()&&playerEl&&curY-step<=100){
+          setTimeout(()=>{
+            try{playerEl.focus({preventScroll:true})}catch{}
+            setTvFocusRing(null);
+          },160);
+        }
+      }
+      return;
+    }
+
+    // C. When focus is inside the built-in video player (#stream-player / #video-player),
+    //    let ALL D-Pad arrows & OK pass directly to the server's native player controls!
+    const frame=$('#stream-player'),video=$('#video-player');
+    if(activeEl===frame||activeEl===video){
+      if(kc===413&&isPlayerActive()){e.preventDefault();stopPlayer()}
+      return;
+    }
+
+    // D. Hisense VIDAA Remote Color & Hardware Media Shortcuts
     if(!isTyping){
       if(kc===403){e.preventDefault();openSearch();return}
       if(kc===404){e.preventDefault();history.pushState(null,'','#my-list');switchView('saved');return}
       if(kc===405){e.preventDefault();history.pushState(null,'','#films');switchView('movies');return}
       if(kc===406){e.preventDefault();history.pushState(null,'','#series');switchView('tv');return}
       if(kc===413&&isPlayerActive()){e.preventDefault();stopPlayer();return}
-      if((kc===415||kc===19||kc===179||e.key==='MediaPlayPause')&&isPlayerActive()){
-        e.preventDefault();
-        if(kc===19)togglePlayerPlayPause(true);
-        else if(kc===415)togglePlayerPlayPause(false);
-        else togglePlayerPlayPause();
-        return;
-      }
-      if(kc===412&&isPlayerActive()){e.preventDefault();seekPlayerBy(-10);return}
-      if(kc===417&&isPlayerActive()){e.preventDefault();seekPlayerBy(10);return}
-      // OK / Enter while pause overlay is visible resumes immediately
+      // OK / Enter while pause overlay is visible dismisses overlay & resumes built-in player
       if((e.key==='Enter'||kc===13)&&isPlayerActive()&&!$('#player-pause-overlay')?.hidden){
         e.preventDefault();
-        togglePlayerPlayPause(false);
+        $('#player-pause-overlay')?.click();
         return;
       }
     }
 
-    // Handle VIDAA / TV Remote Back keys (Escape, Backspace, BrowserBack, GoBack, keyCode 461 / 10009)
-    if((e.key==='Escape'||e.key==='BrowserBack'||e.key==='GoBack'||kc===461||kc===10009||(e.key==='Backspace'&&!isTyping))&&!e.metaKey&&!e.ctrlKey){
-      const modal=$('#more-info-modal');
-      if(modal&&modal.open){e.preventDefault();closeMoreInfoModal();return}
-      if(activeHoverId){e.preventDefault();hideHoverCard();return}
-      if(searchBox?.classList.contains('open')){e.preventDefault();closeSearch();return}
-      if(currentView==='detail'){e.preventDefault();$('#detail-back')?.click();return}
-      if(currentView!=='home'){e.preventDefault();history.pushState(null,'','#home');switchView('home');return}
-      if(isVidaaTv&&typeof window.Hisense_Exit==='function'){
-        try{window.Hisense_Exit()}catch{}
-      }
-      return;
-    }
-
+    // E. 4-Way Spatial D-Pad Navigation across menus, rows, modals & episodes
     const dirMap={ArrowRight:'right',ArrowLeft:'left',ArrowDown:'down',ArrowUp:'up'};
     const dir=dirMap[e.key];
     if(!dir)return;
     if(tag==='INPUT'&&(dir==='left'||dir==='right'))return;
     if(tag==='SELECT'&&(dir==='up'||dir==='down'))return;
 
-    const current=document.activeElement&&document.activeElement!==document.body?document.activeElement:lastTvFocused;
+    const current=activeEl&&activeEl!==document.body?activeEl:lastTvFocused;
     const next=findNextSpatialTarget(current,dir);
-    if(!next)return;
 
+    // Pressing Up from top player controls returns focus directly into the built-in video player
+    if(dir==='up'&&currentView==='detail'&&isPlayerActive()){
+      const playerEl=(frame&&!frame.hidden)?frame:((video&&!video.hidden)?video:null);
+      const curInControls=Boolean(current?.closest?.('.player-controls, .detail-hero, .detail-seasons-section'));
+      const nextAbovePlayer=Boolean(next?.closest?.('.topbar, .detail-topbar'));
+      if(playerEl&&(curInControls&&(!next||nextAbovePlayer))){
+        e.preventDefault();
+        animateWindowScrollY(0,300);
+        setTvFocusRing(null);
+        try{playerEl.focus({preventScroll:true})}catch{}
+        return;
+      }
+    }
+
+    if(!next)return;
     e.preventDefault();
     next.focus({preventScroll:true});
     setTvFocusRing(next);
     smoothFocusScroll(next,dir);
-  });
+  },true);
 
   // 2. Zero-layout-thrash pointer focus snap (fast on VIDAA & Smart TV GPUs)
   document.addEventListener('pointerover',e=>{
