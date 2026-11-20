@@ -930,7 +930,7 @@ window.addEventListener('message',event=>{
 });
 
 function showHoverCardFor(cardEl){
-  if(!window.matchMedia('(hover: hover) and (min-width: 1025px)').matches)return;
+  if(window.innerWidth<900)return;
   const id=cardEl?.dataset?.id;
   const movie=findMovieById(id);
   const pop=$('#hover-card');
@@ -1063,10 +1063,24 @@ function bindHomeRows(){
       clearTimeout(hoverTimer);
       hoverTimer=setTimeout(()=>showHoverCardFor(el),320);
     };
+    el.onfocus=()=>{
+      if(window.innerWidth<900)return;
+      clearTimeout(hoverLeaveTimer);
+      clearTimeout(hoverTimer);
+      hoverTimer=setTimeout(()=>showHoverCardFor(el),450);
+    };
     el.onmouseleave=()=>{
       clearTimeout(hoverTimer);
       clearTimeout(hoverLeaveTimer);
-      hoverLeaveTimer=setTimeout(hideHoverCard,140);
+      hoverLeaveTimer=setTimeout(hideHoverCard,180);
+    };
+    el.onblur=()=>{
+      clearTimeout(hoverTimer);
+      clearTimeout(hoverLeaveTimer);
+      hoverLeaveTimer=setTimeout(()=>{
+        const pop=$('#hover-card');
+        if(pop&&!pop.contains(document.activeElement))hideHoverCard();
+      },180);
     };
   });
 }
@@ -1147,7 +1161,7 @@ function switchView(viewName){
   }
 }
 
-function card(movie){const pct=progress[movie.id]?.pct||0;const isTV=movie.mediaType==='tv';const tagHtml=movie.tag?`<span class="poster-tag">ORIGINAL</span>`:(isTV?`<span class="poster-tag tv-tag">SERIES</span>`:'');return `<article class="movie-card" data-id="${movie.id}"><div class="poster"><div class="poster-art" style="background-image:url('${movie.poster}')"></div>${tagHtml}<div class="card-actions"><button class="save-card ${saved.has(movie.id)?'saved':''}" aria-label="${saved.has(movie.id)?'Remove from':'Add to'} My list" title="My list">${saved.has(movie.id)?SVG_HEART:SVG_PLUS}</button></div>${pct?`<div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>`:''}</div><div class="card-info"><p class="card-title">${escapeHtml(movie.title)}</p><div class="card-meta"><span>${movie.year||'Classic'}</span><span>·</span><span>${escapeHtml(movie.genre)}</span>${movie.rating?`<span class="card-rating">★ ${movie.rating.toFixed(1)}</span>`:''}</div></div></article>`}
+function card(movie){const pct=progress[movie.id]?.pct||0;const isTV=movie.mediaType==='tv';const tagHtml=movie.tag?`<span class="poster-tag">ORIGINAL</span>`:(isTV?`<span class="poster-tag tv-tag">SERIES</span>`:'');return `<article class="movie-card" data-id="${movie.id}" tabindex="0" role="button" aria-label="${escapeHtml(movie.title)}"><div class="poster"><div class="poster-art" style="background-image:url('${movie.poster}')"></div>${tagHtml}<div class="card-actions"><button class="save-card ${saved.has(movie.id)?'saved':''}" aria-label="${saved.has(movie.id)?'Remove from':'Add to'} My list" title="My list">${saved.has(movie.id)?SVG_HEART:SVG_PLUS}</button></div>${pct?`<div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>`:''}</div><div class="card-info"><p class="card-title">${escapeHtml(movie.title)}</p><div class="card-meta"><span>${movie.year||'Classic'}</span><span>·</span><span>${escapeHtml(movie.genre)}</span>${movie.rating?`<span class="card-rating">★ ${movie.rating.toFixed(1)}</span>`:''}</div></div></article>`}
 
 function render(){
   if(currentView==='saved'){renderMyList();return}
@@ -1201,7 +1215,7 @@ function render(){
 function renderPagination(){const nav=$('#pagination');if(!nav)return;nav.hidden=totalPages<=1;const start=Math.max(1,Math.min(currentPage-2,totalPages-4)),end=Math.min(totalPages,start+4);let html=`<button class="page-button" data-page="${currentPage-1}" ${currentPage===1?'disabled':''} aria-label="Previous page">${SVG_PREV}</button>`;for(let p=start;p<=end;p++)html+=`<button class="page-button ${p===currentPage?'current':''}" data-page="${p}" ${p===currentPage?'aria-current="page"':''}>${p}</button>`;html+=`<button class="page-button" data-page="${currentPage+1}" ${currentPage===totalPages?'disabled':''} aria-label="Next page">${SVG_NEXT}</button>`;nav.innerHTML=html;nav.querySelectorAll('[data-page]').forEach(b=>b.onclick=async()=>{const page=Number(b.dataset.page);if(page>=1&&page<=totalPages&&page!==currentPage){isListView=true;const q=searchInput?.value.trim()||'';await loadTMDBCatalog(q,page);scrollToList()}})}
 function filteredMovies(){let list=[...catalog];const genre=$('#genre-filter').value,year=$('#year-filter').value,sort=$('#sort-filter').value;if(genre!=='all')list=list.filter(m=>(m.genres||m.genre.split(',').map(x=>x.trim())).some(g=>g.toLowerCase()===genre.toLowerCase()));if(year!=='all')list=list.filter(m=>String(m.year)===year);if(sort==='rating')list.sort((a,b)=>b.rating-a.rating);if(sort==='newest'){const maxYear=2026;list.sort((a,b)=>{const aOk=a.year>0&&a.year<=maxYear,bOk=b.year>0&&b.year<=maxYear;if(aOk!==bOk)return aOk?-1:1;return b.year-a.year})}if(sort==='az')list.sort((a,b)=>a.title.localeCompare(b.title));return list}
 function refreshFilterOptions(){const g=$('#genre-filter'),y=$('#year-filter'),oldG=g.value,oldY=y.value;const genres=[...new Set(catalog.flatMap(m=>m.genres||m.genre.split(',').map(x=>x.trim())).filter(Boolean))];g.innerHTML='<option value="all">All genres</option>'+genres.sort().map(v=>`<option value="${v}">${v}</option>`).join('');y.innerHTML='<option value="all">Any year</option>'+[...new Set(catalog.map(m=>m.year).filter(Boolean))].sort((a,b)=>b-a).map(v=>`<option value="${v}">${v}</option>`).join('');g.value=[...g.options].some(o=>o.value===oldG)?oldG:'all';y.value=[...y.options].some(o=>o.value===oldY)?oldY:'all';}
-function bindCards(){$$('.movie-card').forEach(el=>{el.onclick=()=>{const id=el.dataset.id;const movie=findMovieById(id);if(movie)openDetailPage(movie,{autoplay:true})};const saveBtn=el.querySelector('.save-card');if(saveBtn){saveBtn.onclick=e=>{e.stopPropagation();const movie=findMovieById(el.dataset.id);if(movie)toggleSavedTitle(movie)}}})}
+function bindCards(){$$('.movie-card').forEach(el=>{const open=()=>{const id=el.dataset.id;const movie=findMovieById(id);if(movie)openDetailPage(movie,{autoplay:true})};el.onclick=open;el.onkeydown=evt=>{if(evt.key==='Enter'||evt.key===' '){evt.preventDefault();open()}};const saveBtn=el.querySelector('.save-card');if(saveBtn){saveBtn.onclick=e=>{e.stopPropagation();const movie=findMovieById(el.dataset.id);if(movie)toggleSavedTitle(movie)}}})}
 async function ensureTvMetadata(movie){
   if(!movie||!movie.tmdbId)return movie;
   const isTV=isTvSeries(movie);
@@ -2568,6 +2582,160 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
   };
   window.addEventListener('wheel',unlockPlayerScroll,{passive:true});
   window.addEventListener('scroll',unlockPlayerScroll,{passive:true});
+})();
+
+/* ==========================================================================
+   Smart TV / VIDAA OS Spatial Navigation & Magnetic Pointer Focus Snap
+   ========================================================================== */
+(function initTvSpatialNav(){
+  const FOCUS_SELECTOR=[
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    '.nf-card',
+    '.nf-top10-card',
+    '.movie-card',
+    '.nf-modal-ep-row'
+  ].join(',');
+
+  let lastTvFocused=null;
+
+  function setTvFocusRing(el){
+    if(lastTvFocused&&lastTvFocused!==el)lastTvFocused.classList.remove('tv-focus');
+    lastTvFocused=el||null;
+    if(el)el.classList.add('tv-focus');
+  }
+
+  function isElementVisible(el){
+    if(!el||el.hidden||el.closest('[hidden]'))return false;
+    const style=window.getComputedStyle(el);
+    if(style.display==='none'||style.visibility==='hidden'||style.pointerEvents==='none')return false;
+    const r=el.getBoundingClientRect();
+    return r.width>4&&r.height>4;
+  }
+
+  function getNavScope(){
+    const openDialog=document.querySelector('dialog[open]');
+    if(openDialog)return openDialog;
+    return document.body;
+  }
+
+  function getFocusableList(){
+    const scope=getNavScope();
+    return [...scope.querySelectorAll(FOCUS_SELECTOR)].filter(isElementVisible);
+  }
+
+  function findNextSpatialTarget(current,dir){
+    const candidates=getFocusableList().filter(el=>el!==current);
+    if(!candidates.length)return null;
+    if(!current||!isElementVisible(current))return candidates[0];
+
+    const cRect=current.getBoundingClientRect();
+    const cx=cRect.left+cRect.width/2;
+    const cy=cRect.top+cRect.height/2;
+
+    let best=null,bestScore=Infinity;
+    for(const el of candidates){
+      const r=el.getBoundingClientRect();
+      const tx=r.left+r.width/2;
+      const ty=r.top+r.height/2;
+      const dx=tx-cx;
+      const dy=ty-cy;
+
+      let primary=0,secondary=0;
+      if(dir==='right'){if(dx<=6)continue;primary=dx;secondary=Math.abs(dy)}
+      else if(dir==='left'){if(dx>=-6)continue;primary=-dx;secondary=Math.abs(dy)}
+      else if(dir==='down'){if(dy<=6)continue;primary=dy;secondary=Math.abs(dx)}
+      else if(dir==='up'){if(dy>=-6)continue;primary=-dy;secondary=Math.abs(dx)}
+
+      // Prefer elements aligned along the axis of travel (especially within the same horizontal row)
+      const sameRow=current.closest('.nf-row-track')&&current.closest('.nf-row-track')===el.closest('.nf-row-track');
+      const rowBonus=(sameRow&&(dir==='left'||dir==='right'))?0.45:1;
+      const score=(primary+secondary*2.6)*rowBonus;
+      if(score<bestScore){
+        bestScore=score;
+        best=el;
+      }
+    }
+    return best;
+  }
+
+  // 1. D-Pad 4-way Spatial Navigation + TV Back key handling
+  document.addEventListener('keydown',e=>{
+    const tag=document.activeElement?.tagName;
+    const isTyping=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
+
+    // Handle VIDAA / TV Remote Back keys (Escape, Backspace, BrowserBack, GoBack)
+    if((e.key==='Escape'||e.key==='BrowserBack'||e.key==='GoBack'||(e.key==='Backspace'&&!isTyping))&&!e.metaKey&&!e.ctrlKey){
+      const modal=$('#more-info-modal');
+      if(modal&&modal.open){e.preventDefault();closeMoreInfoModal();return}
+      if(activeHoverId){e.preventDefault();hideHoverCard();return}
+      if(searchBox?.classList.contains('open')){e.preventDefault();closeSearch();return}
+      if(currentView==='detail'){e.preventDefault();$('#detail-back')?.click();return}
+      return;
+    }
+
+    const dirMap={ArrowRight:'right',ArrowLeft:'left',ArrowDown:'down',ArrowUp:'up'};
+    const dir=dirMap[e.key];
+    if(!dir)return;
+    if(tag==='INPUT'&&(dir==='left'||dir==='right'))return;
+    if(tag==='SELECT'&&(dir==='up'||dir==='down'))return;
+
+    const current=document.activeElement&&document.activeElement!==document.body?document.activeElement:lastTvFocused;
+    const next=findNextSpatialTarget(current,dir);
+    if(!next)return;
+
+    e.preventDefault();
+    next.focus({preventScroll:true});
+    setTvFocusRing(next);
+    try{
+      next.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
+    }catch{
+      next.scrollIntoView(false);
+    }
+  });
+
+  // 2. Magnetic Pointer Snap: when moving virtual TV mouse over/near cards, buttons, search bar, snap focus cleanly
+  let pointerRaf=0;
+  document.addEventListener('pointermove',e=>{
+    if(pointerRaf)return;
+    pointerRaf=requestAnimationFrame(()=>{
+      pointerRaf=0;
+      const direct=document.elementFromPoint(e.clientX,e.clientY)?.closest(FOCUS_SELECTOR);
+      if(direct&&isElementVisible(direct)){
+        if(lastTvFocused!==direct){
+          setTvFocusRing(direct);
+          if(direct.tagName!=='INPUT'&&direct.tagName!=='SELECT'){
+            direct.focus({preventScroll:true});
+          }
+        }
+        return;
+      }
+      // Magnetic radius (26px) around buttons, search bar, and cards for VIDAA virtual mouse
+      const scope=getNavScope();
+      const nearTargets=[...scope.querySelectorAll('.nav-link, .icon-button, .button, .nf-modal-play-btn, .nf-circle-btn, .search-input, .nf-row-arrow')].filter(isElementVisible);
+      let snapped=null,minDist=26;
+      for(const el of nearTargets){
+        const r=el.getBoundingClientRect();
+        const dx=Math.max(r.left-e.clientX,0,e.clientX-r.right);
+        const dy=Math.max(r.top-e.clientY,0,e.clientY-r.bottom);
+        const dist=Math.hypot(dx,dy);
+        if(dist<minDist){
+          minDist=dist;
+          snapped=el;
+        }
+      }
+      if(snapped&&lastTvFocused!==snapped){
+        setTvFocusRing(snapped);
+      }
+    });
+  },{passive:true});
+
+  document.addEventListener('focusin',e=>{
+    const target=e.target?.closest?.(FOCUS_SELECTOR);
+    if(target)setTvFocusRing(target);
+  });
 })();
 $('#player-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));
 $('#top-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));

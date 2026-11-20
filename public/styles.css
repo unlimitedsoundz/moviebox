@@ -789,39 +789,50 @@ body {
 
 .nf-row-arrow {
   position: absolute;
-  top: 4px;
-  bottom: 8px;
-  width: 3.4%;
-  min-width: 36px;
-  z-index: 12;
+  top: 6px;
+  bottom: 12px;
+  width: 52px;
+  min-width: 48px;
+  z-index: 16;
   border: 0;
-  background: rgba(20, 20, 20, 0.62);
+  background: rgba(20, 20, 20, 0.72);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s ease, background 0.2s ease;
+  opacity: 0.86;
+  transition: opacity 0.2s ease, background 0.2s ease, transform 0.16s ease;
   padding: 0;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
-.nf-row-viewport:hover .nf-row-arrow {
+.nf-row-arrow svg {
+  width: 30px;
+  height: 30px;
+}
+
+.nf-row-viewport:hover .nf-row-arrow,
+.nf-row-arrow:hover,
+.nf-row-arrow:focus-visible {
   opacity: 1;
+  background: rgba(20, 20, 20, 0.94);
 }
 
-.nf-row-arrow:hover {
-  background: rgba(20, 20, 20, 0.85);
+.nf-row-arrow:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: -3px;
 }
 
 .nf-row-arrow.prev {
   left: 0;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 8px 8px 0;
 }
 
 .nf-row-arrow.next {
   right: 0;
-  border-radius: 6px 0 0 6px;
+  border-radius: 8px 0 0 8px;
 }
 
 /* Landscape 16:9 Card (Bigger for Desktop & TV Browsers: ~4.3 across) */
@@ -844,12 +855,40 @@ body {
 }
 
 .nf-card:focus-visible,
+.nf-card.tv-focus,
 .nf-top10-card:focus-visible,
+.nf-top10-card.tv-focus,
+.movie-card:focus-visible,
+.movie-card.tv-focus,
 .nav-link:focus-visible,
+.nav-link.tv-focus,
+.icon-button:focus-visible,
+.icon-button.tv-focus,
+.search-input:focus-visible,
+.search-input.tv-focus,
+.button:focus-visible,
+.button.tv-focus,
 .nf-modal-play-btn:focus-visible,
-.nf-modal-ep-row:focus-visible {
-  outline: 3px solid #ffffff;
+.nf-modal-play-btn.tv-focus,
+.nf-circle-btn:focus-visible,
+.nf-circle-btn.tv-focus,
+.nf-modal-close:focus-visible,
+.nf-modal-close.tv-focus,
+.nf-modal-ep-row:focus-visible,
+.nf-modal-ep-row.tv-focus,
+.detail-back-btn:focus-visible,
+.detail-back-btn.tv-focus,
+.player-action-button:focus-visible,
+.player-action-button.tv-focus {
+  outline: 3px solid #ffffff !important;
   outline-offset: 3px;
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.16);
+}
+
+.nf-card.tv-focus,
+.nf-top10-card.tv-focus {
+  transform: scale(1.04);
+  z-index: 6;
 }
 
 .nf-card-img {
@@ -2152,12 +2191,6 @@ footer small {
   .card-actions {
     opacity: 1 !important;
   }
-  .nf-hover-card {
-    display: none !important;
-  }
-  .nf-row-arrow {
-    display: none !important;
-  }
   .card-actions button {
     width: 32px !important;
     height: 32px !important;
@@ -2350,6 +2383,11 @@ footer small {
   .nf-top10-card {
     flex: 0 0 50vw;
     min-width: 175px;
+  }
+
+  .nf-hover-card,
+  .nf-row-arrow {
+    display: none !important;
   }
 
   .hero-carousel-nav {
