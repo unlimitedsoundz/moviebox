@@ -146,9 +146,9 @@ function closeDialogs(){ $$('dialog[open]').forEach(d=>d.close());document.body.
 
 let adBlockerActive=localStorage.getItem('moviebox-adblock')!=='false';
 let blockedRedirectsCount=parseInt(localStorage.getItem('moviebox-adblock-count')||'0',10);
-const STREAM_SERVERS={vidfast:'VidFast',vidlink:'VidLink',cinesrc:'CineSrc'};
-let currentStreamServer=localStorage.getItem('moviebox-stream-server-v3');
-if(!STREAM_SERVERS[currentStreamServer])currentStreamServer='vidfast';
+const STREAM_SERVERS={cinesrc:'CineSrc',vidfast:'VidFast',vidlink:'VidLink'};
+let currentStreamServer=localStorage.getItem('moviebox-stream-server-v4');
+if(!STREAM_SERVERS[currentStreamServer])currentStreamServer='cinesrc';
 let lastAdblockToast=0, currentSeason=1, currentEpisode=1;
 
 function recordBlockedAd(reason='redirect'){
@@ -316,12 +316,12 @@ function getStreamUrl(server,type,tmdbId,startAt=0,season=1,episode=1){
   const id = encodeURIComponent(tmdbId);
   const chosen = (server === 'cinesrc' || server === 'cinesrc-st')
     ? 'cinesrc'
-    : (STREAM_SERVERS[server] ? server : 'vidfast');
+    : (STREAM_SERVERS[server] ? server : 'cinesrc');
   if(chosen === 'cinesrc'){
     const base = isTV
-      ? `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}`
-      : `https://cinesrc.st/embed/movie/${id}`;
-    return resumeSec > 0 ? `${base}${isTV ? '&' : '?'}t=${resumeSec}&startAt=${resumeSec}` : base;
+      ? `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}&autoplay=true&color=e50914`
+      : `https://cinesrc.st/embed/movie/${id}?autoplay=true&color=e50914`;
+    return resumeSec > 0 ? `${base}&t=${resumeSec}&startAt=${resumeSec}` : base;
   }
   if(chosen === 'vidlink'){
     const common = 'player=jwplayer&primaryColor=e50914&secondaryColor=181818&iconColor=ffffff&autoplay=false&muted=false&mute=0&volume=1&title=true&poster=false&quality=1080&defaultQuality=1080&sub_lang=en&subtitle=en&defaultSubtitle=en&captions=en&lang=en';
@@ -3376,7 +3376,7 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
 $('#player-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));
 $('#top-adblock-btn')?.addEventListener('click',()=>setAdBlocker(!adBlockerActive));
 $('#adblock-setting-toggle')?.addEventListener('change',e=>setAdBlocker(e.target.checked));
-$('#server-select')?.addEventListener('change',e=>{currentStreamServer=STREAM_SERVERS[e.target.value]?e.target.value:'vidfast';localStorage.setItem('moviebox-stream-server-v3',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||STREAM_SERVERS[currentStreamServer]}`);playMovie(activeMovie)}});
+$('#server-select')?.addEventListener('change',e=>{currentStreamServer=STREAM_SERVERS[e.target.value]?e.target.value:'cinesrc';localStorage.setItem('moviebox-stream-server-v4',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||STREAM_SERVERS[currentStreamServer]}`);playMovie(activeMovie)}});
 $('#player-reload')?.addEventListener('click',()=>{if(activeMovie&&isPlayerActive()){notify('↻ Reloading stream with Ad Shield active…');playMovie(activeMovie)}});
 document.addEventListener('keydown',e=>{if(e.key==='/'&&!e.metaKey&&!e.ctrlKey&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();openSearch()}if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&isPlayerActive()&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();toggleFullscreen()}});
 applyAdBlockerSandbox();
