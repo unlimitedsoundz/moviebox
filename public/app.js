@@ -283,8 +283,6 @@ function stopPlayer(){
     stage.classList.remove('is-fullscreen');
   }
   document.body.classList.remove('player-fullscreen-mode');
-  const hud=$('#tv-player-hud');
-  if(hud)hud.classList.remove('hud-visible');
   if(document.fullscreenElement||document.webkitFullscreenElement){
     try{
       if(document.exitFullscreen)document.exitFullscreen().catch(()=>{});
@@ -315,7 +313,7 @@ function getStreamUrl(server,type,tmdbId,startAt=0,season=1,episode=1){
     return resumeSec > 0 ? `${base}${isTV ? '&' : '?'}t=${resumeSec}&startAt=${resumeSec}` : base;
   }
   if(chosen === 'vidlink'){
-    const common = 'primaryColor=e50914&secondaryColor=181818&iconColor=ffffff&autoplay=true&title=true&poster=false&quality=1080&defaultQuality=1080&sub_lang=en&subtitle=en&defaultSubtitle=en&captions=en&lang=en';
+    const common = 'primaryColor=e50914&secondaryColor=181818&iconColor=ffffff&autoplay=true&muted=false&mute=0&volume=1&title=true&poster=false&quality=1080&defaultQuality=1080&sub_lang=en&subtitle=en&defaultSubtitle=en&captions=en&lang=en';
     const base = isTV
       ? `https://vidlink.pro/tv/${id}/${s}/${e}?${common}&nextbutton=true`
       : `https://vidlink.pro/movie/${id}?${common}`;
@@ -1807,8 +1805,14 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   hidePauseOverlay();
   if(embedded){
     applyAdBlockerSandbox();
-    frame.setAttribute('tabindex','-1');
+    frame.setAttribute('tabindex','0');
     frame.referrerPolicy=currentStreamServer==='vidlink'?'origin':'no-referrer';
+    frame.onload=()=>{
+      if(isPlayerActive()&&!frame.hidden){
+        unmuteIframePlayer(frame);
+        try{frame.focus({preventScroll:true})}catch{}
+      }
+    };
     const type=isTV?'tv':'movie';
     if($('#server-select'))$('#server-select').value=currentStreamServer;
     const sSel=$('#season-select'),eSel=$('#episode-select'),prevBtn=$('#player-prev-ep'),nextBtn=$('#player-next-ep'),skipBtn=$('#player-skip-intro');
@@ -1966,96 +1970,42 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   if(stage){
     stage.hidden=false;
   }
-  if(!embedded)video.play().catch(()=>{});
+  if(!embedded){
+    video.muted=false;
+    video.volume=1;
+    video.play().catch(()=>{});
+  }
   enterFullscreenPlayer(movie);
 }
 
-const SVG_HUD_PAUSE=`<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
-const SVG_HUD_PLAY=`<svg width="34" height="34" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>`;
-
 let playerHasStarted=false;
-let hudIsPaused=false;
-let hudHideTimer=null;
-let hudLastTime=0;
-let hudLastDuration=0;
 let pendingResumeTarget=null;
 
 function isFullscreenPlayerActive(){
   return document.body.classList.contains('player-fullscreen-mode')&&isPlayerActive();
 }
 
-function isTvHudVisible(){
-  return Boolean($('#tv-player-hud')?.classList.contains('hud-visible'));
-}
-
-function syncHudPlayIcon(){
-  const icon=$('#hud-play-icon');
-  if(icon)icon.innerHTML=hudIsPaused?SVG_HUD_PLAY:SVG_HUD_PAUSE;
-}
-
-function updateHudProgress(curSec,durSec){
-  const cur=Math.max(0,Math.floor(Number(curSec)||0));
-  const dur=Math.max(0,Math.floor(Number(durSec)||0));
-  hudLastTime=cur;
-  if(dur>0)hudLastDuration=dur;
-  const curEl=$('#hud-cur-time'),durEl=$('#hud-dur-time'),fillEl=$('#hud-bar-fill');
-  if(curEl)curEl.textContent=formatTimestamp(cur);
-  if(durEl)durEl.textContent=hudLastDuration>0?formatTimestamp(hudLastDuration):'--:--';
-  if(fillEl){
-    const pct=hudLastDuration>0?Math.min(100,Math.max(0,(cur/hudLastDuration)*100)):0;
-    fillEl.style.width=`${pct.toFixed(1)}%`;
-  }
-}
-
-function updateHudMeta(movie){
-  if(!movie)return;
-  const isTV=isTvSeries(movie);
-  const titleEl=$('#hud-title'),subEl=$('#hud-sub'),srvBtn=$('#hud-server-cycle');
-  const prevBtn=$('#hud-prev-ep'),nextBtn=$('#hud-next-ep'),skipBtn=$('#hud-skip-intro');
-  if(titleEl)titleEl.textContent=movie.title;
-  if(subEl){
-    const srvName=STREAM_SERVERS[currentStreamServer]||'VidLink';
-    subEl.textContent=isTV?`Season ${currentSeason} · Episode ${currentEpisode} · ${srvName} · Auto 1080p`:`${movie.year||''}${movie.duration?` · ${movie.duration}`:''} · ${srvName} · Auto 1080p`;
-  }
-  if(srvBtn)srvBtn.textContent=`Server: ${STREAM_SERVERS[currentStreamServer]||'VidLink'}`;
-  if(prevBtn)prevBtn.hidden=!isTV;
-  if(nextBtn)nextBtn.hidden=!isTV;
-  if(skipBtn)skipBtn.hidden=!isTV;
-  const prog=getResumeProgress(movie.id,isTV?currentSeason:undefined,isTV?currentEpisode:undefined);
-  updateHudProgress(prog.time||0,prog.duration||0);
-}
-
-function hideTvHud(){
-  clearTimeout(hudHideTimer);
-  const hud=$('#tv-player-hud');
-  if(hud)hud.classList.remove('hud-visible');
-}
-
-function showTvHud(focusTarget,autoHideMs=4500){
-  const hud=$('#tv-player-hud');
-  if(!hud||!isPlayerActive())return;
-  if(activeMovie)updateHudMeta(activeMovie);
-  syncHudPlayIcon();
-  hud.classList.add('hud-visible');
-  if(focusTarget&&!focusTarget.hidden){
-    try{focusTarget.focus({preventScroll:true})}catch{}
-    document.querySelectorAll('.tv-focus').forEach(x=>x.classList.remove('tv-focus'));
-    focusTarget.classList.add('tv-focus');
-  }
-  clearTimeout(hudHideTimer);
-  if(!hudIsPaused&&autoHideMs>0){
-    hudHideTimer=setTimeout(hideTvHud,autoHideMs);
+function unmuteIframePlayer(frame){
+  if(!frame?.contentWindow)return;
+  const payloads=[
+    {event:'command',func:'unMute'},
+    {method:'unmute'},
+    {event:'unmute'},
+    {action:'unmute'},
+    {type:'UNMUTE'},
+    {method:'setMuted',muted:false},
+    {method:'setVolume',volume:1},
+    {event:'setVolume',volume:1}
+  ];
+  for(const p of payloads){
+    try{frame.contentWindow.postMessage(p,'*')}catch{}
+    try{frame.contentWindow.postMessage(JSON.stringify(p),'*')}catch{}
   }
 }
 
 function enterFullscreenPlayer(movie){
   const stage=$('#player-stage');
   if(!stage)return;
-  hudIsPaused=false;
-  hudLastTime=0;
-  hudLastDuration=0;
-  syncHudPlayIcon();
-  updateHudMeta(movie||activeMovie);
   stage.hidden=false;
   stage.classList.add('is-fullscreen');
   document.body.classList.add('player-fullscreen-mode');
@@ -2068,11 +2018,19 @@ function enterFullscreenPlayer(movie){
       else if(stage.webkitRequestFullscreen)stage.webkitRequestFullscreen();
     }
   }catch{}
-  setTimeout(()=>showTvHud($('#hud-play-pause'),4500),120);
+  setTimeout(()=>{
+    const frame=$('#stream-player'),video=$('#video-player');
+    const target=(frame&&!frame.hidden)?frame:((video&&!video.hidden)?video:null);
+    if(target){
+      if(target===frame)unmuteIframePlayer(frame);
+      try{target.focus({preventScroll:true})}catch{}
+    }
+  },180);
 }
 
 function exitFullscreenPlayer({fromHistory=false}={}){
-  hideTvHud();
+  const frame=$('#stream-player');
+  if(document.activeElement===frame){try{frame.blur()}catch{}}
   stopPlayer();
   if(!fromHistory&&window.location.hash.startsWith('#watch/')){
     history.back();
@@ -2100,81 +2058,6 @@ function sendIframePlaybackCmd(frame,action){
     try{frame.contentWindow.postMessage(JSON.stringify(p),'*')}catch{}
   }
 }
-
-function hudTogglePlayPause(forcePause){
-  if(!isPlayerActive())return;
-  const video=$('#video-player'),frame=$('#stream-player');
-  const nextPaused=typeof forcePause==='boolean'?forcePause:!hudIsPaused;
-  hudIsPaused=nextPaused;
-  syncHudPlayIcon();
-  if(video&&!video.hidden){
-    if(nextPaused)video.pause();
-    else video.play().catch(()=>{});
-  }else if(frame){
-    sendIframePlaybackCmd(frame,nextPaused?'pause':'play');
-  }
-  showTvHud($('#hud-play-pause'),nextPaused?0:4000);
-}
-
-let hudSeekReloadTimer=null;
-function hudSeekBy(deltaSec){
-  if(!isPlayerActive()||!activeMovie)return;
-  const video=$('#video-player'),frame=$('#stream-player');
-  if(video&&!video.hidden){
-    const target=Math.max(0,Math.min(video.duration||Infinity,(video.currentTime||0)+deltaSec));
-    video.currentTime=target;
-    updateHudProgress(target,video.duration||0);
-    showTvHud(deltaSec<0?$('#hud-rw'):$('#hud-ff'),4000);
-    notify(deltaSec>0?`⏩ +${deltaSec}s · ${formatTimestamp(target)}`:`⏪ ${deltaSec}s · ${formatTimestamp(target)}`);
-    return;
-  }
-  const isTV=isTvSeries(activeMovie);
-  const prog=getResumeProgress(activeMovie.id,isTV?currentSeason:undefined,isTV?currentEpisode:undefined);
-  const baseTime=Math.max(hudLastTime,Number(prog.time)||0);
-  const target=Math.max(0,baseTime+deltaSec);
-  updateHudProgress(target,hudLastDuration||prog.duration||0);
-  savePlaybackProgress(activeMovie.id,{
-    season:isTV?currentSeason:undefined,
-    episode:isTV?currentEpisode:undefined,
-    time:target,
-    duration:hudLastDuration||prog.duration||0,
-    completed:false
-  });
-  enforceIframeSeek(frame,target);
-  showTvHud(deltaSec<0?$('#hud-rw'):$('#hud-ff'),4000);
-  notify(deltaSec>0?`⏩ +${deltaSec}s · ${formatTimestamp(target)}`:`⏪ ${deltaSec}s · ${formatTimestamp(target)}`);
-  // Fallback: if VidLink/embed ignores postMessage seek, reload cleanly at the exact target timestamp
-  clearTimeout(hudSeekReloadTimer);
-  const beforeTick=hudLastTime;
-  hudSeekReloadTimer=setTimeout(()=>{
-    if(!isPlayerActive()||!activeMovie||!frame||frame.hidden)return;
-    if(Math.abs(hudLastTime-target)>6&&hudLastTime===beforeTick){
-      frame.src=getStreamUrl(currentStreamServer,isTV?'tv':'movie',activeMovie.tmdbId,target,currentSeason,currentEpisode);
-    }
-  },800);
-}
-
-$('#hud-back')?.addEventListener('click',()=>exitFullscreenPlayer());
-$('#hud-play-pause')?.addEventListener('click',()=>hudTogglePlayPause());
-$('#hud-rw')?.addEventListener('click',()=>hudSeekBy(-10));
-$('#hud-ff')?.addEventListener('click',()=>hudSeekBy(10));
-$('#hud-prev-ep')?.addEventListener('click',()=>{showTvHud($('#hud-prev-ep'),4000);$('#player-prev-ep')?.click()});
-$('#hud-next-ep')?.addEventListener('click',()=>{showTvHud($('#hud-next-ep'),4000);$('#player-next-ep')?.click()});
-$('#hud-skip-intro')?.addEventListener('click',()=>{showTvHud($('#hud-skip-intro'),4000);$('#player-skip-intro')?.click()});
-$('#hud-reload')?.addEventListener('click',()=>{showTvHud($('#hud-reload'),4000);$('#player-reload')?.click()});
-$('#hud-server-cycle')?.addEventListener('click',()=>{
-  const keys=Object.keys(STREAM_SERVERS);
-  const nextKey=keys[(keys.indexOf(currentStreamServer)+1)%keys.length];
-  currentStreamServer=nextKey;
-  localStorage.setItem('moviebox-stream-server-v2',currentStreamServer);
-  if($('#server-select'))$('#server-select').value=currentStreamServer;
-  notify(`Server: ${STREAM_SERVERS[currentStreamServer]}`);
-  if(activeMovie)playMovie(activeMovie);
-});
-
-$('.player-media-wrap')?.addEventListener('mousemove',()=>{
-  if(isFullscreenPlayerActive())showTvHud(null,3500);
-},{passive:true});
 
 function enforceIframeSeek(frame,targetSec){
   if(!frame?.contentWindow||!targetSec||targetSec<=0)return;
@@ -2314,19 +2197,13 @@ window.addEventListener('message',event=>{
   }
 
   if(evtName==='play'||evtName==='playing'||(evtName==='timeupdate'&&Number.isFinite(seconds)&&seconds>1)||data.paused===false){
+    if(!playerHasStarted)unmuteIframePlayer(frame);
     playerHasStarted=true;
-    hudIsPaused=false;
-    syncHudPlayIcon();
     hidePauseOverlay();
-  }else if(playerHasStarted&&(evtName==='pause'||evtName==='paused'||data.paused===true)){
-    hudIsPaused=true;
-    syncHudPlayIcon();
-    showTvHud($('#hud-play-pause'),0);
   }
 
   if(Number.isFinite(seconds)&&seconds>0){
     progressItems[activeMovie.id]=activeMovie;
-    updateHudProgress(seconds,Number.isFinite(duration)&&duration>0?duration:hudLastDuration);
     const isCompleted=data.player_status==='completed'||(Number.isFinite(duration)&&duration>0&&seconds>=duration-15);
     savePlaybackProgress(activeMovie.id,{
       season:isTV?currentSeason:undefined,
@@ -2921,10 +2798,6 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
   }
 
   function getNavScope(){
-    if(isFullscreenPlayerActive()){
-      const hud=$('#tv-player-hud');
-      if(hud)return hud;
-    }
     const openDialog=document.querySelector('dialog[open]');
     if(openDialog)return openDialog;
     return document.body;
@@ -3063,67 +2936,10 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
       return;
     }
 
-    // B. Fullscreen Netflix-Style TV Player HUD Remote Control
+    // B. While in Fullscreen Native Player Mode, let ALL D-Pad & OK pass straight to the native player
+    //    (Back is already handled in section A above to exit fullscreen cleanly!)
     if(isFullscreenPlayerActive()){
-      const dirMap={ArrowRight:'right',ArrowLeft:'left',ArrowDown:'down',ArrowUp:'up'};
-      const dir=dirMap[e.key];
-      const isOk=e.key==='Enter'||kc===13||e.key===' ';
-      // Hardware media keys (Play, Pause, Stop, Rewind, FastForward)
       if(kc===413){e.preventDefault();e.stopPropagation();exitFullscreenPlayer();return}
-      if(kc===415||kc===19||kc===179||e.key==='MediaPlayPause'){
-        e.preventDefault();e.stopPropagation();
-        if(kc===19)hudTogglePlayPause(true);
-        else if(kc===415)hudTogglePlayPause(false);
-        else hudTogglePlayPause();
-        return;
-      }
-      if(kc===412){e.preventDefault();e.stopPropagation();hudSeekBy(-10);return}
-      if(kc===417){e.preventDefault();e.stopPropagation();hudSeekBy(10);return}
-
-      if(!isTvHudVisible()){
-        if(isOk){
-          e.preventDefault();e.stopPropagation();
-          hudTogglePlayPause();
-          return;
-        }
-        if(dir==='left'){
-          e.preventDefault();e.stopPropagation();
-          hudSeekBy(-10);
-          return;
-        }
-        if(dir==='right'){
-          e.preventDefault();e.stopPropagation();
-          hudSeekBy(10);
-          return;
-        }
-        if(dir==='up'||dir==='down'){
-          e.preventDefault();e.stopPropagation();
-          showTvHud($('#hud-play-pause'),4500);
-          return;
-        }
-        return;
-      }
-
-      // HUD is visible: D-Pad navigates seamlessly between Back, -10s, Play/Pause, +10s, Prev/Next Ep, Server
-      if(dir){
-        e.preventDefault();e.stopPropagation();
-        const hud=$('#tv-player-hud');
-        const curInHud=activeEl&&hud?.contains(activeEl)?activeEl:$('#hud-play-pause');
-        const next=findNextSpatialTarget(curInHud,dir);
-        if(next&&hud?.contains(next)){
-          showTvHud(next,4500);
-        }else{
-          showTvHud(curInHud,4500);
-        }
-        return;
-      }
-      if(isOk){
-        e.preventDefault();e.stopPropagation();
-        const hud=$('#tv-player-hud');
-        const target=(activeEl&&hud?.contains(activeEl))?activeEl:$('#hud-play-pause');
-        target?.click();
-        return;
-      }
       return;
     }
 
