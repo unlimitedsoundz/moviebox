@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#141414" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="manifest" href="manifest.json" />
+  <title>MovieBox — Hisense VIDAA OS TV WebApp Installer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #141414;
+      color: #ffffff;
+      font-family: "Inter", "Helvetica Neue", Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 5%;
+    }
+    .shell {
+      width: min(980px, 100%);
+      background: #181818;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 40px 48px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+    }
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+    .brand {
+      font-family: "Bebas Neue", sans-serif;
+      font-size: 46px;
+      letter-spacing: 2px;
+      color: #e50914;
+      line-height: 1;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      font-size: 13px;
+      font-weight: 600;
+      color: #e5e5e5;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #46d369;
+    }
+    .dot.warn { background: #f59e0b; }
+    .hero-row {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 32px;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    .tile {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: #0d0d0d;
+    }
+    .tile img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+    p.lead {
+      margin: 0 0 22px;
+      font-size: 16px;
+      line-height: 1.55;
+      color: #b8b8b8;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+    .btn {
+      min-height: 52px;
+      padding: 13px 28px;
+      border-radius: 999px;
+      border: 0;
+      font: 700 16px "Inter", sans-serif;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+      transition: transform 0.15s ease, background 0.15s ease;
+    }
+    .btn:focus-visible {
+      outline: 3px solid #ffffff;
+      outline-offset: 4px;
+    }
+    .btn-primary {
+      background: #e50914;
+      color: #ffffff;
+    }
+    .btn-primary:hover { background: #f6121d; }
+    .btn-white {
+      background: #ffffff;
+      color: #000000;
+    }
+    .btn-white:hover { background: rgba(255, 255, 255, 0.86); }
+    .btn-ghost {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ffffff;
+    }
+    .btn-ghost:hover { background: rgba(255, 255, 255, 0.18); }
+    .status-box {
+      padding: 14px 18px;
+      border-radius: 10px;
+      background: #222222;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 14.5px;
+      color: #e5e5e5;
+      margin-bottom: 24px;
+      display: none;
+    }
+    .status-box.show { display: block; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 24px;
+    }
+    .card {
+      background: #202020;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .card ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #c2c2c2;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .code-line {
+      margin: 6px 0;
+      font-size: 13px;
+      color: #d4d4d4;
+      word-break: break-all;
+    }
+    .code-line span { color: #8c8c8c; display: block; font-size: 11.5px; margin-bottom: 2px; }
+    .code-line code {
+      display: block;
+      background: #141414;
+      padding: 6px 10px;
+      border-radius: 6px;
+      color: #ffffff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+    }
+    @media (max-width: 760px) {
+      .hero-row, .grid { grid-template-columns: 1fr; }
+      .shell { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="top">
+      <div class="brand">MOVIEBOX</div>
+      <div class="pill"><span class="dot" id="env-dot"></span><span id="env-label">Checking VIDAA OS…</span></div>
+    </div>
+
+    <div class="hero-row">
+      <div class="tile"><img src="vidaa-thumb.png" alt="MovieBox TV Tile" /></div>
+      <div>
+        <h1>Hisense VIDAA OS WebApp</h1>
+        <p class="lead">Install MovieBox directly onto your Hisense VIDAA TV Home screen with full D-pad spatial navigation, remote Back/Color shortcuts, and 1080p full-width playback.</p>
+        <div class="actions">
+          <button type="button" class="btn btn-primary" id="install-btn">Install on Hisense TV</button>
+          <a class="btn btn-white" href="/?tv=vidaa" id="launch-btn">Launch TV App</a>
+          <button type="button" class="btn btn-ghost" id="uninstall-btn" hidden>Uninstall</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="status-box" id="status-box" role="status" aria-live="polite"></div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>VIDAA Remote Shortcuts</h2>
+        <ul>
+          <li><strong>D-Pad Arrows</strong> — Snap focus across rows, cards &amp; buttons</li>
+          <li><strong>OK / Enter</strong> — Open &amp; play immediately</li>
+          <li><strong>Back</strong> — Close modal, exit player, or return Home</li>
+          <li><strong>Red / Green</strong> — Search / My List</li>
+          <li><strong>Yellow / Blue</strong> — Films / Series</li>
+        </ul>
+      </section>
+      <section class="card">
+        <h2>Manual VIDAA Installer URLs</h2>
+        <div class="code-line"><span>App URL</span><code id="app-url"></code></div>
+        <div class="code-line"><span>Thumbnail (480×270)</span><code id="thumb-url"></code></div>
+        <div class="code-line"><span>Icon (512×512)</span><code id="icon-url"></code></div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const origin = window.location.origin;
+    const APP_ID = 'moviebox_vidaa_app';
+    const APP_NAME = 'MovieBox';
+    const APP_URL = `${origin}/?tv=vidaa`;
+    const THUMB_URL = `${origin}/vidaa-thumb.png`;
+    const ICON_192 = `${origin}/icon-192.png`;
+    const ICON_512 = `${origin}/icon-512.png`;
+
+    document.getElementById('app-url').textContent = APP_URL;
+    document.getElementById('thumb-url').textContent = THUMB_URL;
+    document.getElementById('icon-url').textContent = ICON_512;
+
+    const statusBox = document.getElementById('status-box');
+    const envDot = document.getElementById('env-dot');
+    const envLabel = document.getElementById('env-label');
+    const installBtn = document.getElementById('install-btn');
+    const uninstallBtn = document.getElementById('uninstall-btn');
+
+    const hasVidaaInstaller = typeof window.Hisense_installApp === 'function';
+    const isVidaaUA = /VIDAA|Hisense/i.test(navigator.userAgent || '');
+
+    function showStatus(msg) {
+      statusBox.textContent = msg;
+      statusBox.classList.add('show');
+    }
+
+    if (hasVidaaInstaller) {
+      envLabel.textContent = 'VIDAA OS Native Installer Ready';
+      if (typeof window.Hisense_uninstallApp === 'function') {
+        uninstallBtn.hidden = false;
+      }
+    } else if (isVidaaUA) {
+      envDot.classList.add('warn');
+      envLabel.textContent = 'VIDAA Browser Detected · Use Launch or Debug Installer';
+    } else {
+      envDot.classList.add('warn');
+      envLabel.textContent = 'Open this page in your Hisense VIDAA TV Browser to install';
+    }
+
+    installBtn.addEventListener('click', () => {
+      if (typeof window.Hisense_installApp === 'function') {
+        showStatus('Installing MovieBox on your Hisense VIDAA TV…');
+        try {
+          window.Hisense_installApp(
+            APP_ID,
+            APP_NAME,
+            THUMB_URL,
+            ICON_192,
+            ICON_512,
+            APP_URL,
+            'store',
+            (res) => {
+              showStatus(res === 0 || res === true
+                ? 'MovieBox installed! Find it in your Hisense VIDAA Home Apps.'
+                : `VIDAA installer responded: ${res}. You can also launch directly below.`);
+            }
+          );
+        } catch (err) {
+          showStatus(`Install call failed: ${err.message}. You can launch directly or use VIDAA Debug Installer with the URLs below.`);
+        }
+      } else {
+        showStatus('Hisense native install API is only available inside the Hisense VIDAA TV Browser (or VIDAA Debug page: hisense://debug). On your TV, open this URL or add the App URL below in VIDAA Debug Installer.');
+      }
+    });
+
+    uninstallBtn.addEventListener('click', () => {
+      if (typeof window.Hisense_uninstallApp === 'function') {
+        try {
+          window.Hisense_uninstallApp(APP_ID, (res) => {
+            showStatus(`Uninstall status: ${res}`);
+          });
+        } catch (err) {
+          showStatus(`Uninstall failed: ${err.message}`);
+        }
+      }
+    });
+
+    installBtn.focus();
+  </script>
+</body>
+</html>

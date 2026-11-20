@@ -4021,3 +4021,36 @@ dialog.nf-info-modal::backdrop {
   letter-spacing: 0.4px;
   margin-left: 8px;
 }
+
+/* ==========================================================================
+   Hisense VIDAA OS 10-Foot TV WebApp Mode (body.vidaa-tv)
+   ========================================================================== */
+
+body.vidaa-tv {
+  --gutter: 4%;
+  font-size: 18px;
+  scrollbar-width: none;
+}
+
+body.vidaa-tv::-webkit-scrollbar {
+  display: none;
+}
+
+body.vidaa-tv .topbar {
+  height: 82px;
+}
+
+body.vidaa-tv .nav-link {
+  font-size: 18px;
+  padding: 10px 20px;
+}
+
+body.vidaa-tv .nf-row-title {
+  font-size: 26px;
+}
+
+body.vidaa-tv .hero-buttons .button {
+  min-height: 56px;
+  padding: 15px 38px;
+  font-size: 20px;
+}

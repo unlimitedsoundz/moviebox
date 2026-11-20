@@ -2637,18 +2637,54 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     return best;
   }
 
-  // 1. D-Pad 4-way Spatial Navigation + TV Back key handling
+  // Detect Hisense VIDAA OS TV environment or ?tv=vidaa launcher flag
+  const isVidaaTv=new URLSearchParams(window.location.search).get('tv')==='vidaa'||/VIDAA|Hisense/i.test(navigator.userAgent||'');
+  if(isVidaaTv){
+    document.body.classList.add('vidaa-tv');
+    setTimeout(()=>{
+      const initialTarget=$('#hero-play')||$('.nav-link.active');
+      if(initialTarget&&isElementVisible(initialTarget)){
+        initialTarget.focus({preventScroll:true});
+        setTvFocusRing(initialTarget);
+      }
+    },350);
+  }
+
+  // 1. D-Pad 4-way Spatial Navigation + Hisense VIDAA Remote Keycodes
   document.addEventListener('keydown',e=>{
     const tag=document.activeElement?.tagName;
     const isTyping=tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT';
+    const kc=e.keyCode||e.which||0;
 
-    // Handle VIDAA / TV Remote Back keys (Escape, Backspace, BrowserBack, GoBack)
-    if((e.key==='Escape'||e.key==='BrowserBack'||e.key==='GoBack'||(e.key==='Backspace'&&!isTyping))&&!e.metaKey&&!e.ctrlKey){
+    // Hisense VIDAA Remote Color Shortcuts (Red=Search, Green=My List, Yellow=Films, Blue=Series)
+    if(!isTyping){
+      if(kc===403){e.preventDefault();openSearch();return}
+      if(kc===404){e.preventDefault();history.pushState(null,'','#my-list');switchView('saved');return}
+      if(kc===405){e.preventDefault();history.pushState(null,'','#films');switchView('movies');return}
+      if(kc===406){e.preventDefault();history.pushState(null,'','#series');switchView('tv');return}
+      if(kc===413&&isPlayerActive()){e.preventDefault();stopPlayer();return}
+      if((kc===415||kc===19)&&isPlayerActive()){
+        const video=$('#video-player');
+        if(video&&!video.hidden){
+          e.preventDefault();
+          if(kc===19)video.pause();
+          else video.play().catch(()=>{});
+          return;
+        }
+      }
+    }
+
+    // Handle VIDAA / TV Remote Back keys (Escape, Backspace, BrowserBack, GoBack, keyCode 461 / 10009)
+    if((e.key==='Escape'||e.key==='BrowserBack'||e.key==='GoBack'||kc===461||kc===10009||(e.key==='Backspace'&&!isTyping))&&!e.metaKey&&!e.ctrlKey){
       const modal=$('#more-info-modal');
       if(modal&&modal.open){e.preventDefault();closeMoreInfoModal();return}
       if(activeHoverId){e.preventDefault();hideHoverCard();return}
       if(searchBox?.classList.contains('open')){e.preventDefault();closeSearch();return}
       if(currentView==='detail'){e.preventDefault();$('#detail-back')?.click();return}
+      if(currentView!=='home'){e.preventDefault();history.pushState(null,'','#home');switchView('home');return}
+      if(isVidaaTv&&typeof window.Hisense_Exit==='function'){
+        try{window.Hisense_Exit()}catch{}
+      }
       return;
     }
 
