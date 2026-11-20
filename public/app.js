@@ -530,11 +530,11 @@ function renderTop10Card(movie,rank,rowId){
   const img=movie.poster||movie.backdrop||'';
   const badge=getCardBadge(movie,rank-1,rowId);
   const isTen=rank>=10;
-  return `<article class="nf-top10-card" data-id="${escapeHtml(movie.id)}" tabindex="0" role="button" aria-label="Number ${rank}: ${escapeHtml(movie.title)}">
+  return `<article class="nf-top10-card">
     <svg class="nf-top10-rank" viewBox="${isTen?'0 0 155 210':'0 0 105 210'}" preserveAspectRatio="none" aria-hidden="true">
       <text x="${isTen?'72':'52'}" y="198" text-anchor="middle" font-size="${isTen?'212':'246'}" letter-spacing="${isTen?'-18':'-4'}">${rank}</text>
     </svg>
-    <div class="nf-top10-poster">
+    <div class="nf-top10-poster" data-id="${escapeHtml(movie.id)}" tabindex="0" role="button" aria-label="Number ${rank}: ${escapeHtml(movie.title)}">
       ${img?`<img src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" loading="lazy" />`:''}
       ${badge?`<span class="nf-card-badge">${escapeHtml(badge)}</span>`:''}
     </div>
@@ -771,7 +771,7 @@ function mountHoverTrailer(ctx){
       if(activeHoverId===ctx.id&&ctx.iframe===iframe&&!failedTrailerKeys.has(key)){
         wrap.classList.add('ready');
       }
-    },650);
+    },80);
   };
 
   wrap.appendChild(iframe);
@@ -853,7 +853,7 @@ function mountHeroTrailer(ctx){
       if(activeHeroContext===ctx&&ctx.iframe===iframe&&!failedTrailerKeys.has(key)){
         wrap.classList.add('ready');
       }
-    },750);
+    },150);
   };
 
   wrap.appendChild(iframe);
@@ -891,7 +891,7 @@ function scheduleHeroPreview(movie){
       activeHeroContext=ctx;
       mountHeroTrailer(ctx);
     });
-  },1200);
+  },150);
 }
 
 window.addEventListener('message',event=>{
@@ -1004,7 +1004,7 @@ function bindHomeRows(){
     };
   });
 
-  $$('.nf-card, .nf-top10-card').forEach(el=>{
+  $$('.nf-card').forEach(el=>{
     const open=()=>{
       hideHoverCard();
       const movie=findMovieById(el.dataset.id);
@@ -1020,27 +1020,44 @@ function bindHomeRows(){
     el.onmouseenter=()=>{
       clearTimeout(hoverLeaveTimer);
       clearTimeout(hoverTimer);
-      hoverTimer=setTimeout(()=>showHoverCardFor(el),320);
+      showHoverCardFor(el);
     };
     el.onfocus=()=>{
-      if(window.innerWidth<900)return;
+      if(window.innerWidth<768)return;
       clearTimeout(hoverLeaveTimer);
       clearTimeout(hoverTimer);
-      hoverTimer=setTimeout(()=>showHoverCardFor(el),450);
+      showHoverCardFor(el);
     };
     el.onmouseleave=()=>{
       clearTimeout(hoverTimer);
       clearTimeout(hoverLeaveTimer);
-      hoverLeaveTimer=setTimeout(hideHoverCard,180);
+      hoverLeaveTimer=setTimeout(hideHoverCard,120);
     };
     el.onblur=()=>{
       clearTimeout(hoverTimer);
       clearTimeout(hoverLeaveTimer);
       hoverLeaveTimer=setTimeout(()=>{
-        const pop=$('#hover-card');
-        if(pop&&!pop.contains(document.activeElement))hideHoverCard();
-      },180);
+        if(!el.contains(document.activeElement))hideHoverCard();
+      },120);
     };
+  });
+
+  // Top 10: focus & click snap strictly onto the poster card only (no rank number snap, no preview video)
+  $$('.nf-top10-poster').forEach(el=>{
+    const open=()=>{
+      hideHoverCard();
+      const movie=findMovieById(el.dataset.id);
+      if(movie)openDetailPage(movie,{autoplay:true});
+    };
+    el.onclick=open;
+    el.onkeydown=evt=>{
+      if(evt.key==='Enter'||evt.key===' '){
+        evt.preventDefault();
+        open();
+      }
+    };
+    el.onmouseenter=()=>hideHoverCard();
+    el.onfocus=()=>hideHoverCard();
   });
 }
 
@@ -2553,7 +2570,7 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     'input:not([disabled])',
     'select:not([disabled])',
     '.nf-card',
-    '.nf-top10-card',
+    '.nf-top10-poster',
     '.movie-card',
     '.nf-modal-ep-row'
   ].join(',');

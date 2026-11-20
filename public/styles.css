@@ -849,18 +849,9 @@ body {
   transform: translateZ(0);
 }
 
-.nf-card.is-previewing,
-.nf-top10-card.is-previewing .nf-top10-poster {
-  transform: scale(1.04);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8), 0 0 0 2px rgba(255, 255, 255, 0.85);
-}
-
 .nf-card.is-previewing {
   z-index: 10;
-}
-
-.nf-top10-card.is-previewing {
-  z-index: 10;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8), 0 0 0 2px rgba(255, 255, 255, 0.85);
 }
 
 .nf-inline-preview {
@@ -933,8 +924,8 @@ body {
 
 .nf-card:focus-visible,
 .nf-card.tv-focus,
-.nf-top10-card:focus-visible,
-.nf-top10-card.tv-focus,
+.nf-top10-poster:focus-visible,
+.nf-top10-poster.tv-focus,
 .movie-card:focus-visible,
 .movie-card.tv-focus,
 .nav-link:focus-visible,
@@ -963,8 +954,7 @@ body {
 }
 
 .nf-card.tv-focus,
-.nf-top10-card.tv-focus {
-  transform: scale(1.04);
+.nf-top10-poster.tv-focus {
   z-index: 6;
 }
 
@@ -979,7 +969,7 @@ body {
 }
 
 .nf-card:hover .nf-card-img {
-  transform: scale(1.04);
+  transform: none;
 }
 
 .nf-card-scrim {
@@ -1091,7 +1081,7 @@ body {
   min-width: 255px;
   display: flex;
   align-items: stretch;
-  cursor: pointer;
+  pointer-events: none;
   user-select: none;
 }
 
@@ -1124,12 +1114,13 @@ body {
   overflow: hidden;
   background: #1f1f1f;
   z-index: 2;
+  pointer-events: auto;
+  cursor: pointer;
   box-shadow: -6px 0 18px rgba(0, 0, 0, 0.55);
-  transition: transform 0.22s ease;
 }
 
 .nf-top10-card:hover .nf-top10-poster {
-  transform: scale(1.03);
+  transform: none;
 }
 
 .nf-top10-poster img {
