@@ -1827,7 +1827,11 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
     frame.onload=()=>{
       if(isPlayerActive()&&!frame.hidden){
         unmuteIframePlayer(frame);
-        try{frame.focus({preventScroll:true})}catch{}
+        const fsBack=$('#fs-back-btn');
+        if(fsBack&&isFullscreenPlayerActive()){
+          try{fsBack.focus({preventScroll:true})}catch{}
+          fsBack.classList.add('tv-focus');
+        }
       }
     };
     const type=isTV?'tv':'movie';
@@ -2198,7 +2202,20 @@ function nativeSeekBy(deltaSec){
   notify(deltaSec>0?`⏩ +${deltaSec}s · ${formatTimestamp(target)}`:`⏪ ${deltaSec}s · ${formatTimestamp(target)}`);
 }
 
-$('#fs-back-btn')?.addEventListener('click',()=>exitFullscreenPlayer());
+const fsBackBtn=$('#fs-back-btn');
+if(fsBackBtn){
+  const onFsBack=(e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    exitFullscreenPlayer();
+  };
+  fsBackBtn.addEventListener('click',onFsBack);
+  fsBackBtn.addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key===' '||e.keyCode===13){
+      onFsBack(e);
+    }
+  });
+}
 $('#nhud-back')?.addEventListener('click',()=>exitFullscreenPlayer());
 $('#nhud-play')?.addEventListener('click',()=>nativeTogglePlayPause());
 $('#nhud-rw')?.addEventListener('click',()=>nativeSeekBy(-10));
@@ -2297,7 +2314,12 @@ function enterFullscreenPlayer(movie){
     const frame=$('#stream-player');
     if(frame&&!frame.hidden){
       unmuteIframePlayer(frame);
-      try{frame.focus({preventScroll:true})}catch{}
+    }
+    const fsBack=$('#fs-back-btn');
+    if(fsBack){
+      try{fsBack.focus({preventScroll:true})}catch{}
+      document.querySelectorAll('.tv-focus').forEach(x=>x.classList.remove('tv-focus'));
+      fsBack.classList.add('tv-focus');
     }
   },180);
 }
@@ -2347,15 +2369,18 @@ function exitFullscreenPlayer({fromHistory=false}={}){
   const frame=$('#stream-player');
   if(document.activeElement===frame){try{frame.blur()}catch{}}
   stopPlayer();
-  if(!fromHistory&&window.location.hash.startsWith('#watch/')){
-    history.back();
+  if(!fromHistory&&window.location.hash.startsWith('#watch/')&&activeMovie){
+    history.replaceState({view:'detail',id:activeMovie.id},'',`#title/${encodeURIComponent(activeMovie.id)}`);
   }
+  window.scrollTo(0,0);
   setTimeout(()=>{
-    const playBtn=$('#detail-play')||$('#detail-back');
-    if(playBtn){
-      try{playBtn.focus({preventScroll:true})}catch{}
+    const target=$('#detail-play')||$('#detail-back');
+    if(target){
+      try{target.focus({preventScroll:true})}catch{}
+      document.querySelectorAll('.tv-focus').forEach(x=>x.classList.remove('tv-focus'));
+      target.classList.add('tv-focus');
     }
-  },80);
+  },60);
 }
 
 function sendIframePlaybackCmd(frame,action){
@@ -3280,6 +3305,26 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
       const isOk=e.key==='Enter'||kc===13||e.key===' ';
 
       if(!isNativeVideoActive()){
+        const fsBack=$('#fs-back-btn');
+        if(activeEl===fsBack&&isOk){
+          e.preventDefault();e.stopPropagation();
+          exitFullscreenPlayer();
+          return;
+        }
+        // Pressing Down / Left / Right from the Back pill focuses the VidFast iframe for native seek/volume
+        if(activeEl===fsBack&&(dir==='down'||dir==='left'||dir==='right')){
+          e.preventDefault();e.stopPropagation();
+          fsBack.classList.remove('tv-focus');
+          const frame=$('#stream-player');
+          if(frame){try{frame.focus({preventScroll:true})}catch{}}
+          return;
+        }
+        if(dir==='up'&&fsBack){
+          e.preventDefault();e.stopPropagation();
+          try{fsBack.focus({preventScroll:true})}catch{}
+          fsBack.classList.add('tv-focus');
+          return;
+        }
         if(isOk||kc===415||kc===19||kc===179||e.key==='MediaPlayPause'){
           e.preventDefault();e.stopPropagation();
           if(kc===19)embedTogglePlayPause(false);
@@ -3289,7 +3334,6 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
         }
         if(dir==='left'||kc===412){e.preventDefault();e.stopPropagation();embedSeekBy(-10);return}
         if(dir==='right'||kc===417){e.preventDefault();e.stopPropagation();embedSeekBy(10);return}
-        if(dir==='up'){e.preventDefault();e.stopPropagation();embedAdjustVolume(0.1);return}
         if(dir==='down'){e.preventDefault();e.stopPropagation();embedAdjustVolume(-0.1);return}
         return;
       }
