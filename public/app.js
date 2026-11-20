@@ -2590,6 +2590,64 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     '.nf-modal-ep-row'
   ].join(',');
 
+  let vScrollRaf=0,hScrollRaf=0;
+
+  function animateWindowScrollY(targetY,duration=220){
+    cancelAnimationFrame(vScrollRaf);
+    const startY=window.pageYOffset||document.documentElement.scrollTop||0;
+    const maxY=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
+    const clampedY=Math.max(0,Math.min(maxY,targetY));
+    const delta=clampedY-startY;
+    if(Math.abs(delta)<2)return;
+    const startTime=performance.now();
+    const step=(now)=>{
+      const t=Math.min(1,(now-startTime)/duration);
+      const ease=1-Math.pow(1-t,3);
+      window.scrollTo(0,Math.round(startY+delta*ease));
+      if(t<1)vScrollRaf=requestAnimationFrame(step);
+    };
+    vScrollRaf=requestAnimationFrame(step);
+  }
+
+  function animateTrackScrollX(track,targetX,duration=200){
+    cancelAnimationFrame(hScrollRaf);
+    if(!track)return;
+    const startX=track.scrollLeft;
+    const maxX=Math.max(0,track.scrollWidth-track.clientWidth);
+    const clampedX=Math.max(0,Math.min(maxX,targetX));
+    const delta=clampedX-startX;
+    if(Math.abs(delta)<2)return;
+    const startTime=performance.now();
+    const step=(now)=>{
+      const t=Math.min(1,(now-startTime)/duration);
+      const ease=1-Math.pow(1-t,3);
+      track.scrollLeft=Math.round(startX+delta*ease);
+      if(t<1)hScrollRaf=requestAnimationFrame(step);
+    };
+    hScrollRaf=requestAnimationFrame(step);
+  }
+
+  function smoothFocusScroll(el,dir){
+    if(!el)return;
+    const openDialog=document.querySelector('dialog[open]');
+    if(openDialog){
+      try{el.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'})}catch{}
+      return;
+    }
+    const rect=el.getBoundingClientRect();
+    const track=el.closest('.nf-row-track');
+    if(track&&(dir==='left'||dir==='right')){
+      const tRect=track.getBoundingClientRect();
+      const targetX=track.scrollLeft+(rect.left-tRect.left)-(tRect.width-rect.width)/2;
+      animateTrackScrollX(track,targetX,200);
+    }
+    if(dir==='up'||dir==='down'||!track){
+      const currentY=window.pageYOffset||document.documentElement.scrollTop||0;
+      const targetY=currentY+rect.top-(window.innerHeight-rect.height)/2;
+      animateWindowScrollY(targetY,230);
+    }
+  }
+
   let lastTvFocused=null;
 
   function setTvFocusRing(el){
@@ -2741,11 +2799,7 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     e.preventDefault();
     next.focus({preventScroll:true});
     setTvFocusRing(next);
-    try{
-      next.scrollIntoView({behavior:isVidaaTv?'auto':'smooth',block:'center',inline:'center'});
-    }catch{
-      next.scrollIntoView(false);
-    }
+    smoothFocusScroll(next,dir);
   });
 
   // 2. Zero-layout-thrash pointer focus snap (fast on VIDAA & Smart TV GPUs)
