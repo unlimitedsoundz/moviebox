@@ -1862,6 +1862,32 @@ dialog::backdrop {
   cursor: not-allowed;
 }
 
+.player-action-button.play-pause-btn {
+  background: #ffffff;
+  border: 1px solid #ffffff;
+  color: #000000;
+  font-weight: 700;
+  padding: 0 22px;
+}
+
+.player-action-button.play-pause-btn:hover,
+.player-action-button.play-pause-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.86);
+  color: #000000;
+}
+
+.player-action-button.seek-btn {
+  background: #222222;
+  border: 1px solid #3c3c3c;
+  color: #ffffff;
+}
+
+.player-action-button.seek-btn:hover,
+.player-action-button.seek-btn:focus-visible {
+  background: #2e2e2e;
+  border-color: #ffffff;
+}
+
 .player-action-button.ep-nav-btn {
   background: #222222;
   border: 1px solid #383838;
@@ -4091,8 +4117,27 @@ body.vidaa-tv .nf-card.tv-focus,
 body.vidaa-tv .nf-top10-poster:focus-visible,
 body.vidaa-tv .nf-top10-poster.tv-focus,
 body.vidaa-tv .nav-link.tv-focus,
-body.vidaa-tv .button.tv-focus {
+body.vidaa-tv .button.tv-focus,
+body.vidaa-tv .player-action-button.tv-focus,
+body.vidaa-tv .player-field select:focus-visible {
   box-shadow: none;
   outline: 4px solid #ffffff !important;
   outline-offset: 2px;
+}
+
+/* Native TV App Mode: D-Pad scrolls rows directly, hide mouse-only arrows & enlarge player buttons */
+body.vidaa-tv .nf-row-arrow {
+  display: none !important;
+}
+
+body.vidaa-tv .player-action-button {
+  height: 48px;
+  padding: 0 24px;
+  font-size: 16px;
+  border-radius: 999px;
+}
+
+body.vidaa-tv .player-field select {
+  height: 46px;
+  font-size: 15px;
 }

@@ -1788,6 +1788,8 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   $('#player-title').textContent=movie.title;
   $('#player-subtitle').textContent=isTV?`Season ${currentSeason} · Episode ${currentEpisode}${movie.year?` · ${movie.year}`:''}`:`${movie.tag?'A MovieBox Original · ':''}${movie.year||''}${movie.duration?` · ${movie.duration}`:''}`;
   playerHasStarted=false;
+  playerIsPaused=false;
+  syncPlayPauseBtn();
   pendingResumeTarget=resumeTime>5?{movieId:movie.id,time:resumeTime,startedAt:Date.now(),seekAttempts:0}:null;
   populatePauseOverlay(movie);
   hidePauseOverlay();
@@ -1950,12 +1952,94 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   const stage=$('#player-stage');
   if(stage){
     stage.hidden=false;
-    stage.scrollIntoView({behavior:'smooth',block:'nearest'});
+    stage.scrollIntoView({behavior:'auto',block:'start'});
   }
   if(!embedded)video.play().catch(()=>{});
+  if(document.body.classList.contains('vidaa-tv')){
+    setTimeout(()=>{
+      const pp=$('#player-play-pause');
+      if(pp&&!pp.hidden){
+        pp.focus({preventScroll:true});
+        pp.classList.add('tv-focus');
+      }
+    },180);
+  }
 }
+const SVG_PAUSE=`<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>`;
 let playerHasStarted=false;
+let playerIsPaused=false;
 let pendingResumeTarget=null;
+
+function syncPlayPauseBtn(){
+  const iconEl=$('#player-play-pause-icon'),labelEl=$('#player-play-pause-label');
+  if(iconEl)iconEl.innerHTML=playerIsPaused?SVG_PLAY:SVG_PAUSE;
+  if(labelEl)labelEl.textContent=playerIsPaused?'Play':'Pause';
+}
+
+function sendIframePlaybackCmd(frame,action){
+  if(!frame?.contentWindow)return;
+  const payloads=[
+    {type:action.toUpperCase()},
+    {event:action},
+    {action},
+    {command:action}
+  ];
+  for(const p of payloads){
+    try{frame.contentWindow.postMessage(p,'*')}catch{}
+    try{frame.contentWindow.postMessage(JSON.stringify(p),'*')}catch{}
+  }
+}
+
+function togglePlayerPlayPause(forceState){
+  if(!isPlayerActive())return;
+  const video=$('#video-player'),frame=$('#stream-player');
+  const nextPaused=typeof forceState==='boolean'?forceState:!playerIsPaused;
+  if(video&&!video.hidden){
+    if(nextPaused)video.pause();
+    else video.play().catch(()=>{});
+    playerIsPaused=nextPaused;
+    syncPlayPauseBtn();
+    return;
+  }
+  playerIsPaused=nextPaused;
+  syncPlayPauseBtn();
+  if(nextPaused){
+    playerHasStarted=true;
+    sendIframePlaybackCmd(frame,'pause');
+    showPauseOverlay();
+  }else{
+    sendIframePlaybackCmd(frame,'play');
+    hidePauseOverlay();
+  }
+}
+
+function seekPlayerBy(deltaSec){
+  if(!isPlayerActive()||!activeMovie)return;
+  const video=$('#video-player'),frame=$('#stream-player');
+  if(video&&!video.hidden){
+    const target=Math.max(0,Math.min(video.duration||Infinity,(video.currentTime||0)+deltaSec));
+    video.currentTime=target;
+    notify(deltaSec>0?`⏩ +${deltaSec}s`:`⏪ ${deltaSec}s`);
+    return;
+  }
+  const isTV=isTvSeries(activeMovie);
+  const prog=getResumeProgress(activeMovie.id,isTV?currentSeason:undefined,isTV?currentEpisode:undefined);
+  const cur=Number(prog.time)||0;
+  const target=Math.max(0,cur+deltaSec);
+  savePlaybackProgress(activeMovie.id,{
+    season:isTV?currentSeason:undefined,
+    episode:isTV?currentEpisode:undefined,
+    time:target,
+    duration:prog.duration||0,
+    completed:false
+  });
+  enforceIframeSeek(frame,target);
+  notify(deltaSec>0?`⏩ +${deltaSec}s · ${formatTimestamp(target)}`:`⏪ ${deltaSec}s · ${formatTimestamp(target)}`);
+}
+
+$('#player-play-pause')?.addEventListener('click',()=>togglePlayerPlayPause());
+$('#player-rw')?.addEventListener('click',()=>seekPlayerBy(-10));
+$('#player-ff')?.addEventListener('click',()=>seekPlayerBy(10));
 
 function enforceIframeSeek(frame,targetSec){
   if(!frame?.contentWindow||!targetSec||targetSec<=0)return;
@@ -2031,17 +2115,7 @@ function hidePauseOverlay(){
 }
 
 $('#player-pause-overlay')?.addEventListener('click',()=>{
-  hidePauseOverlay();
-  const video=$('#video-player');
-  if(video&&!video.hidden){
-    video.play().catch(()=>{});
-  }else{
-    const frame=$('#stream-player');
-    try{
-      frame?.contentWindow?.postMessage(JSON.stringify({event:'play',action:'play'}),'*');
-      frame?.focus();
-    }catch{}
-  }
+  togglePlayerPlayPause(false);
 });
 
 window.addEventListener('message',event=>{
@@ -2097,8 +2171,12 @@ window.addEventListener('message',event=>{
 
   if(evtName==='play'||evtName==='playing'||(evtName==='timeupdate'&&Number.isFinite(seconds)&&seconds>1)||data.paused===false){
     playerHasStarted=true;
+    playerIsPaused=false;
+    syncPlayPauseBtn();
     hidePauseOverlay();
   }else if(playerHasStarted&&(evtName==='pause'||evtName==='paused'||data.paused===true)){
+    playerIsPaused=true;
+    syncPlayPauseBtn();
     showPauseOverlay();
   }
 
@@ -2309,6 +2387,10 @@ function openMoreInfoModal(movie){
 
   showDialog(modal);
   modal.scrollTop=0;
+  setTimeout(()=>{
+    const mp=$('#modal-play');
+    if(mp){mp.focus({preventScroll:true});mp.classList.add('tv-focus')}
+  },80);
 
   // Auto-play 1080p HD trailer inside modal header
   if(movie.tmdbId){
@@ -2761,14 +2843,20 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
       if(kc===405){e.preventDefault();history.pushState(null,'','#films');switchView('movies');return}
       if(kc===406){e.preventDefault();history.pushState(null,'','#series');switchView('tv');return}
       if(kc===413&&isPlayerActive()){e.preventDefault();stopPlayer();return}
-      if((kc===415||kc===19)&&isPlayerActive()){
-        const video=$('#video-player');
-        if(video&&!video.hidden){
-          e.preventDefault();
-          if(kc===19)video.pause();
-          else video.play().catch(()=>{});
-          return;
-        }
+      if((kc===415||kc===19||kc===179||e.key==='MediaPlayPause')&&isPlayerActive()){
+        e.preventDefault();
+        if(kc===19)togglePlayerPlayPause(true);
+        else if(kc===415)togglePlayerPlayPause(false);
+        else togglePlayerPlayPause();
+        return;
+      }
+      if(kc===412&&isPlayerActive()){e.preventDefault();seekPlayerBy(-10);return}
+      if(kc===417&&isPlayerActive()){e.preventDefault();seekPlayerBy(10);return}
+      // OK / Enter while pause overlay is visible resumes immediately
+      if((e.key==='Enter'||kc===13)&&isPlayerActive()&&!$('#player-pause-overlay')?.hidden){
+        e.preventDefault();
+        togglePlayerPlayPause(false);
+        return;
       }
     }
 
