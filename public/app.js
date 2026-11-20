@@ -1,3 +1,13 @@
+const IS_VIDAA_TV = (()=>{
+  try{
+    const qs=new URLSearchParams(window.location.search).get('tv')==='vidaa';
+    const ua=/VIDAA|Hisense|SmartTV|HbbTV|Tizen|Web0S|NetCast|BRAVIA|PhilipsTV|Opera TV/i.test(navigator.userAgent||'');
+    const tvScreen=window.innerWidth>=960&&window.matchMedia&&!window.matchMedia('(hover: hover)').matches;
+    const isTv=qs||ua||tvScreen;
+    if(isTv)document.body?.classList?.add('vidaa-tv');
+    return isTv;
+  }catch{return false}
+})();
 const DEMO_1080P = 'https://archive.org/download/Sintel/sintel-2048-stereo.mp4';
 const DEMO_720P = 'https://upload.wikimedia.org/wikipedia/commons/transcoded/f/f1/Sintel_movie_4K.webm/Sintel_movie_4K.webm.720p.vp9.webm';
 const DEMO_480P = 'https://media.w3.org/2010/05/sintel/trailer.mp4';
@@ -532,17 +542,18 @@ function optimizeTmdbImg(url,size){
 
 function renderLandscapeCard(movie,index,rowId,{showProgress=false}={}){
   const rawImg=movie.backdrop||movie.poster||'';
-  const img=optimizeTmdbImg(rawImg,'w780');
+  const img=optimizeTmdbImg(rawImg,'w500');
   const rawLogo=getMovieLogo(movie);
   const logo=optimizeTmdbImg(rawLogo,'w300');
   const pct=showProgress?(progress[movie.id]?.pct||0):0;
   const badge=showProgress?'':getCardBadge(movie,index,rowId);
   const showMono=movie.mediaType==='tv'||index%2===0;
+  const loadAttr=IS_VIDAA_TV?'':'loading="lazy"';
   return `<article class="nf-card ${badge?'has-badge':''}" data-id="${escapeHtml(movie.id)}" tabindex="0" role="button" aria-label="${escapeHtml(movie.title)}">
-    ${img?`<img class="nf-card-img" src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" loading="lazy" decoding="async" />`:''}
+    ${img?`<img class="nf-card-img" src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" ${loadAttr} decoding="async" />`:''}
     <div class="nf-card-scrim"></div>
     ${showMono?`<span class="nf-card-monogram" aria-hidden="true">M</span>`:''}
-    ${logo?`<img class="nf-card-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(movie.title)}" loading="lazy" decoding="async" onerror="this.remove();this.nextElementSibling&&(this.nextElementSibling.hidden=false)" />`:''}
+    ${logo?`<img class="nf-card-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(movie.title)}" ${loadAttr} decoding="async" onerror="this.remove();this.nextElementSibling&&(this.nextElementSibling.hidden=false)" />`:''}
     <h3 class="nf-card-title" ${logo?'hidden':''}>${escapeHtml(movie.title)}</h3>
     ${badge?`<span class="nf-card-badge">${escapeHtml(badge)}</span>`:''}
     ${pct>0?`<div class="nf-card-progress"><div class="nf-card-progress-fill" style="width:${pct}%"></div></div>`:''}
@@ -554,12 +565,13 @@ function renderTop10Card(movie,rank,rowId){
   const img=optimizeTmdbImg(rawImg,'w342');
   const badge=getCardBadge(movie,rank-1,rowId);
   const isTen=rank>=10;
+  const loadAttr=IS_VIDAA_TV?'':'loading="lazy"';
   return `<article class="nf-top10-card">
     <svg class="nf-top10-rank" viewBox="${isTen?'0 0 155 210':'0 0 105 210'}" preserveAspectRatio="none" aria-hidden="true">
       <text x="${isTen?'72':'52'}" y="198" text-anchor="middle" font-size="${isTen?'212':'246'}" letter-spacing="${isTen?'-18':'-4'}">${rank}</text>
     </svg>
     <div class="nf-top10-poster" data-id="${escapeHtml(movie.id)}" tabindex="0" role="button" aria-label="Number ${rank}: ${escapeHtml(movie.title)}">
-      ${img?`<img src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" loading="lazy" decoding="async" />`:''}
+      ${img?`<img src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" ${loadAttr} decoding="async" />`:''}
       ${badge?`<span class="nf-card-badge">${escapeHtml(badge)}</span>`:''}
     </div>
   </article>`;
@@ -568,7 +580,7 @@ function renderTop10Card(movie,rank,rowId){
 function renderNetflixRow({id,title,items,type='landscape',showProgress=false}){
   const unique=getUniqueMovies(items);
   if(!unique.length)return '';
-  const rowCap=document.body.classList.contains('vidaa-tv')?12:18;
+  const rowCap=IS_VIDAA_TV?10:16;
   const list=type==='top10'?unique.slice(0,10):unique.slice(0,rowCap);
   const cardsHtml=type==='top10'
     ? list.map((m,i)=>renderTop10Card(m,i+1,id)).join('')
@@ -3103,10 +3115,33 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     '.nf-modal-ep-row'
   ].join(',');
 
+  let vLerpRaf=0,vLerpCur=0,vLerpTarget=null;
+  const hLerpMap=new WeakMap();
+
   function animateWindowScrollY(targetY){
     const maxY=Math.max(0,document.documentElement.scrollHeight-window.innerHeight);
     const clampedY=Math.max(0,Math.min(maxY,Math.round(targetY)));
-    try{window.scrollTo({top:clampedY,behavior:'smooth'})}catch{window.scrollTo(0,clampedY)}
+    if(!vLerpRaf)vLerpCur=window.pageYOffset||document.documentElement.scrollTop||0;
+    vLerpTarget=clampedY;
+    if(Math.abs(vLerpTarget-vLerpCur)<1.5){
+      window.scrollTo(0,vLerpTarget);
+      vLerpTarget=null;
+      return;
+    }
+    if(vLerpRaf)return;
+    const tick=()=>{
+      const diff=vLerpTarget-vLerpCur;
+      if(Math.abs(diff)<1.2){
+        window.scrollTo(0,vLerpTarget);
+        vLerpRaf=0;
+        vLerpTarget=null;
+        return;
+      }
+      vLerpCur+=diff*0.34;
+      window.scrollTo(0,Math.round(vLerpCur));
+      vLerpRaf=requestAnimationFrame(tick);
+    };
+    vLerpRaf=requestAnimationFrame(tick);
   }
 
   function scrollPageByY(deltaY){
@@ -3114,25 +3149,49 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     if(openDialog){
       const maxTop=Math.max(0,openDialog.scrollHeight-openDialog.clientHeight);
       const targetTop=Math.max(0,Math.min(maxTop,Math.round(openDialog.scrollTop+deltaY)));
-      try{openDialog.scrollTo({top:targetTop,behavior:'smooth'})}catch{openDialog.scrollTop=targetTop}
+      openDialog.scrollTop=targetTop;
       return;
     }
-    const curY=window.pageYOffset||document.documentElement.scrollTop||0;
-    animateWindowScrollY(curY+deltaY);
+    const base=vLerpTarget!==null?vLerpTarget:(window.pageYOffset||document.documentElement.scrollTop||0);
+    animateWindowScrollY(base+deltaY);
   }
 
   function animateTrackScrollX(track,targetX){
     if(!track)return;
     const maxX=Math.max(0,track.scrollWidth-track.clientWidth);
     const clampedX=Math.max(0,Math.min(maxX,Math.round(targetX)));
-    try{track.scrollTo({left:clampedX,behavior:'smooth'})}catch{track.scrollLeft=clampedX}
+    let state=hLerpMap.get(track);
+    if(!state){
+      state={raf:0,cur:track.scrollLeft,target:clampedX};
+      hLerpMap.set(track,state);
+    }else{
+      if(!state.raf)state.cur=track.scrollLeft;
+      state.target=clampedX;
+    }
+    if(Math.abs(state.target-state.cur)<1.5){
+      track.scrollLeft=state.target;
+      return;
+    }
+    if(state.raf)return;
+    const tick=()=>{
+      const diff=state.target-state.cur;
+      if(Math.abs(diff)<1.2){
+        track.scrollLeft=state.target;
+        state.raf=0;
+        return;
+      }
+      state.cur+=diff*0.36;
+      track.scrollLeft=Math.round(state.cur);
+      state.raf=requestAnimationFrame(tick);
+    };
+    state.raf=requestAnimationFrame(tick);
   }
 
   function smoothFocusScroll(el,dir){
     if(!el)return;
     const openDialog=document.querySelector('dialog[open]');
     if(openDialog){
-      try{el.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'})}catch{}
+      try{el.scrollIntoView({behavior:'auto',block:'center',inline:'nearest'})}catch{}
       return;
     }
     const rect=el.getBoundingClientRect();
@@ -3141,6 +3200,7 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
       const tRect=track.getBoundingClientRect();
       const targetX=track.scrollLeft+(rect.left-tRect.left)-(tRect.width-rect.width)/2;
       animateTrackScrollX(track,targetX);
+      return;
     }
     if(dir==='up'||dir==='down'||!track){
       const currentY=window.pageYOffset||document.documentElement.scrollTop||0;
@@ -3165,10 +3225,7 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
 
   function isElementVisible(el){
     if(!el||isExcludedFromTvFocus(el)||el.hidden||el.closest('[hidden]'))return false;
-    const style=window.getComputedStyle(el);
-    if(style.display==='none'||style.visibility==='hidden'||style.pointerEvents==='none')return false;
-    const r=el.getBoundingClientRect();
-    return r.width>4&&r.height>4;
+    return el.offsetWidth>4&&el.offsetHeight>4;
   }
 
   function getNavScope(){
@@ -3187,17 +3244,17 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
   }
 
   function findNextSpatialTarget(current,dir){
-    // O(1) fast-path for horizontal D-pad navigation inside any carousel row (instant reaction on TV)
+    // 1. O(1) fast-path for horizontal D-pad navigation inside any carousel row (landscape or Top 10)
     const curTrack=current?.closest?.('.nf-row-track');
     if(curTrack&&(dir==='left'||dir==='right')){
       const items=[...curTrack.querySelectorAll('.nf-card, .nf-top10-poster')];
       const idx=items.indexOf(current);
       if(idx!==-1){
         const nextIdx=dir==='right'?idx+1:idx-1;
-        if(nextIdx>=0&&nextIdx<items.length)return items[nextIdx];
+        return (nextIdx>=0&&nextIdx<items.length)?items[nextIdx]:null;
       }
     }
-    // O(1) fast-path for vertical D-pad jumps between adjacent carousel rows
+    // 2. O(1) fast-path for vertical D-pad jumps between adjacent carousel rows & Hero
     const curRow=current?.closest?.('.nf-row-section');
     if(curRow&&(dir==='up'||dir==='down')){
       const adjRow=dir==='down'?curRow.nextElementSibling:curRow.previousElementSibling;
@@ -3213,6 +3270,44 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
           return bestItem;
         }
       }
+      if(dir==='up'&&!adjRow){
+        const heroBtn=$('#hero-play');
+        if(heroBtn&&isElementVisible(heroBtn))return heroBtn;
+        const navAct=$('.main-nav .nav-link.active')||$('.main-nav .nav-link');
+        if(navAct&&isElementVisible(navAct))return navAct;
+        return null;
+      }
+      if(dir==='down'&&!adjRow)return null;
+    }
+    // 3. O(1) fast-path from Hero buttons (Up -> Topbar, Down -> First row, Left/Right -> Hero buttons)
+    if(current?.closest?.('.hero-buttons')){
+      if(dir==='down'){
+        const firstCard=$('#home-shelves .nf-row-section .nf-card, #home-shelves .nf-row-section .nf-top10-poster');
+        if(firstCard&&isElementVisible(firstCard))return firstCard;
+      }
+      if(dir==='up'){
+        const navAct=$('.main-nav .nav-link.active')||$('.main-nav .nav-link');
+        if(navAct&&isElementVisible(navAct))return navAct;
+      }
+      if(dir==='right'&&current.id==='hero-play'){
+        const infoBtn=$('#hero-info');
+        if(infoBtn&&isElementVisible(infoBtn))return infoBtn;
+        const muteBtn=$('#hero-mute-btn');
+        if(muteBtn&&isElementVisible(muteBtn))return muteBtn;
+        return null;
+      }
+      if(dir==='left'&&current.id==='hero-info'){
+        const playBtn=$('#hero-play');
+        if(playBtn&&isElementVisible(playBtn))return playBtn;
+        return null;
+      }
+    }
+    // 4. O(1) fast-path from Topbar Down -> Hero Play or First Card
+    if(current?.closest?.('.topbar')&&dir==='down'){
+      const heroBtn=$('#hero-play');
+      if(heroBtn&&isElementVisible(heroBtn))return heroBtn;
+      const firstCard=$('#home-shelves .nf-card, #home-shelves .nf-top10-poster, .movie-card');
+      if(firstCard&&isElementVisible(firstCard))return firstCard;
     }
 
     const candidates=getFocusableList().filter(el=>el!==current);

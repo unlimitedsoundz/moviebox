@@ -776,7 +776,7 @@ body {
   display: flex;
   gap: 12px;
   overflow-x: auto;
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
   scrollbar-width: none;
   padding: 6px var(--gutter) 12px;
   -webkit-overflow-scrolling: touch;
@@ -842,7 +842,6 @@ body {
   overflow: hidden;
   background: #1f1f1f;
   cursor: pointer;
-  transition: transform 0.18s ease;
   user-select: none;
   contain: layout paint;
 }
@@ -963,7 +962,6 @@ body {
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.35s ease;
 }
 
 .nf-card:hover .nf-card-img {
@@ -1047,7 +1045,6 @@ body {
   padding: 6px 16px;
   border-radius: 5px 5px 0 0;
   white-space: nowrap;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.55);
 }
 
 .nf-card-progress {
@@ -1080,6 +1077,7 @@ body {
   align-items: stretch;
   pointer-events: none;
   user-select: none;
+  contain: layout paint;
 }
 
 .nf-top10-rank {
@@ -1087,7 +1085,7 @@ body {
   align-self: stretch;
   height: auto;
   flex-shrink: 0;
-  overflow: visible;
+  overflow: hidden;
   margin-right: -12%;
   z-index: 1;
   pointer-events: none;
@@ -1101,6 +1099,7 @@ body {
   stroke: #595959;
   stroke-width: 5px;
   paint-order: stroke fill;
+  text-rendering: optimizeSpeed;
 }
 
 .nf-top10-poster {
@@ -1113,7 +1112,7 @@ body {
   z-index: 2;
   pointer-events: auto;
   cursor: pointer;
-  box-shadow: -6px 0 18px rgba(0, 0, 0, 0.55);
+  contain: layout paint;
 }
 
 .nf-top10-card:hover .nf-top10-poster {
