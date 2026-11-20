@@ -331,8 +331,8 @@ function getStreamUrl(server,type,tmdbId,startAt=0,season=1,episode=1){
     return resumeSec > 0 ? `${base}&start=${resumeSec}&startAt=${resumeSec}&t=${resumeSec}` : base;
   }
   const base = isTV
-    ? `https://vidfast.vc/tv/${id}/${s}/${e}?autoPlay=true&theme=E50914&title=true&poster=false&nextButton=true&autoNext=true&defaultQuality=1080&sub=en&lang=en&audio=en`
-    : `https://vidfast.vc/movie/${id}?autoPlay=true&theme=E50914&title=true&poster=false&defaultQuality=1080&sub=en&lang=en&audio=en`;
+    ? `https://vidfast.vc/tv/${id}/${s}/${e}?autoPlay=true&muted=false&mute=0&volume=1&vol=100&theme=E50914&title=true&poster=false&nextButton=true&autoNext=true&defaultQuality=1080&sub=en&lang=en&audio=en`
+    : `https://vidfast.vc/movie/${id}?autoPlay=true&muted=false&mute=0&volume=1&vol=100&theme=E50914&title=true&poster=false&defaultQuality=1080&sub=en&lang=en&audio=en`;
   return resumeSec > 0 ? `${base}&startAt=${resumeSec}&t=${resumeSec}` : base;
 }
 function getUniqueMovies(items){const seen=new Set();return(items||[]).filter(m=>{if(!m)return false;const key=(m.tmdbId?`${m.mediaType||'movie'}-${m.tmdbId}`:m.id)||(m.title&&m.year?`${m.title.toLowerCase()}-${m.year}`:m.title);if(seen.has(key))return false;seen.add(key);return true})}
@@ -1822,7 +1822,7 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   hidePauseOverlay();
   if(embedded){
     applyAdBlockerSandbox();
-    frame.setAttribute('tabindex','0');
+    frame.setAttribute('tabindex','-1');
     frame.referrerPolicy=currentStreamServer==='vidlink'?'origin':'no-referrer';
     frame.onload=()=>{
       if(isPlayerActive()&&!frame.hidden){
@@ -2267,8 +2267,12 @@ $('.player-media-wrap')?.addEventListener('mousemove',()=>{
 
 function unmuteIframePlayer(frame){
   if(!frame?.contentWindow)return;
+  embedVolume=1;
   const payloads=[
+    {command:'unmute'},
+    {command:'volume',level:1},
     {event:'command',func:'unMute'},
+    {event:'command',func:'setVolume',args:[100]},
     {method:'unmute'},
     {event:'unmute'},
     {action:'unmute'},
@@ -2343,17 +2347,33 @@ function embedTogglePlayPause(forcePlaying){
   notify(nextPlaying?'▶ Playing':'⏸ Paused');
 }
 
+let embedSeekReloadTimer=null;
 function embedSeekBy(deltaSec){
   const frame=$('#stream-player');
-  if(!frame?.contentWindow||frame.hidden)return;
-  const isTV=activeMovie?isTvSeries(activeMovie):false;
-  const prog=activeMovie?getResumeProgress(activeMovie.id,isTV?currentSeason:undefined,isTV?currentEpisode:undefined):{time:0};
+  if(!frame?.contentWindow||frame.hidden||!activeMovie)return;
+  const isTV=isTvSeries(activeMovie);
+  const prog=getResumeProgress(activeMovie.id,isTV?currentSeason:undefined,isTV?currentEpisode:undefined);
   const base=Math.max(embedCurTime,Number(prog.time)||0);
   const target=Math.max(0,embedDuration>0?Math.min(embedDuration-1,base+deltaSec):base+deltaSec);
+  const prevTick=embedCurTime;
   embedCurTime=target;
+  savePlaybackProgress(activeMovie.id,{
+    season:isTV?currentSeason:undefined,
+    episode:isTV?currentEpisode:undefined,
+    time:target,
+    duration:embedDuration||prog.duration||0,
+    completed:false
+  });
   try{frame.contentWindow.postMessage({command:'seek',time:target},'*')}catch{}
   enforceIframeSeek(frame,target);
   notify(deltaSec>0?`⏩ +${deltaSec}s · ${formatTimestamp(target)}`:`⏪ ${deltaSec}s · ${formatTimestamp(target)}`);
+  clearTimeout(embedSeekReloadTimer);
+  embedSeekReloadTimer=setTimeout(()=>{
+    if(!isPlayerActive()||!activeMovie||frame.hidden)return;
+    if(embedCurTime===target||embedCurTime===prevTick){
+      frame.src=getStreamUrl(currentStreamServer,isTV?'tv':'movie',activeMovie.tmdbId,target,currentSeason,currentEpisode);
+    }
+  },650);
 }
 
 function embedAdjustVolume(delta){
@@ -3306,23 +3326,25 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
 
       if(!isNativeVideoActive()){
         const fsBack=$('#fs-back-btn');
-        if(activeEl===fsBack&&isOk){
+        const stage=$('#player-stage');
+        // OK while Back pill is highlighted exits fullscreen immediately
+        if((activeEl===fsBack||fsBack?.classList.contains('tv-focus'))&&isOk){
           e.preventDefault();e.stopPropagation();
           exitFullscreenPlayer();
           return;
         }
-        // Pressing Down / Left / Right from the Back pill focuses the VidFast iframe for native seek/volume
-        if(activeEl===fsBack&&(dir==='down'||dir==='left'||dir==='right')){
-          e.preventDefault();e.stopPropagation();
-          fsBack.classList.remove('tv-focus');
-          const frame=$('#stream-player');
-          if(frame){try{frame.focus({preventScroll:true})}catch{}}
-          return;
-        }
+        // Up D-Pad ALWAYS highlights the top-left Back button (unlinked from volume)
         if(dir==='up'&&fsBack){
           e.preventDefault();e.stopPropagation();
           try{fsBack.focus({preventScroll:true})}catch{}
           fsBack.classList.add('tv-focus');
+          return;
+        }
+        // Down D-Pad un-highlights the Back button without trapping focus inside the cross-origin iframe (unlinked from volume)
+        if(dir==='down'){
+          e.preventDefault();e.stopPropagation();
+          if(fsBack)fsBack.classList.remove('tv-focus');
+          if(stage){try{stage.focus({preventScroll:true})}catch{}}
           return;
         }
         if(isOk||kc===415||kc===19||kc===179||e.key==='MediaPlayPause'){
@@ -3334,7 +3356,6 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
         }
         if(dir==='left'||kc===412){e.preventDefault();e.stopPropagation();embedSeekBy(-10);return}
         if(dir==='right'||kc===417){e.preventDefault();e.stopPropagation();embedSeekBy(10);return}
-        if(dir==='down'){e.preventDefault();e.stopPropagation();embedAdjustVolume(-0.1);return}
         return;
       }
 
