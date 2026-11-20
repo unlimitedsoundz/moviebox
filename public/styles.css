@@ -20,7 +20,7 @@
 }
 
 html {
-  scroll-behavior: smooth;
+  scroll-behavior: auto;
 }
 
 body {
@@ -55,9 +55,7 @@ body {
 
 .topbar.scrolled {
   background: rgba(20, 20, 20, 0.96);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.45);
 }
 
 .brand {
@@ -747,6 +745,8 @@ body {
 
 .nf-row-section {
   position: relative;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 270px;
 }
 
 .nf-row-header {
@@ -795,17 +795,15 @@ body {
   min-width: 48px;
   z-index: 16;
   border: 0;
-  background: rgba(20, 20, 20, 0.72);
+  background: rgba(20, 20, 20, 0.78);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0.86;
-  transition: opacity 0.2s ease, background 0.2s ease, transform 0.16s ease;
+  opacity: 0.88;
+  transition: opacity 0.16s ease, background 0.16s ease;
   padding: 0;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
 }
 
 .nf-row-arrow svg {
@@ -845,8 +843,87 @@ body {
   overflow: hidden;
   background: #1f1f1f;
   cursor: pointer;
-  transition: transform 0.22s ease, box-shadow 0.22s ease;
+  transition: transform 0.18s ease;
   user-select: none;
+  contain: layout paint;
+  transform: translateZ(0);
+}
+
+.nf-card.is-previewing,
+.nf-top10-card.is-previewing .nf-top10-poster {
+  transform: scale(1.04);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.8), 0 0 0 2px rgba(255, 255, 255, 0.85);
+}
+
+.nf-card.is-previewing {
+  z-index: 10;
+}
+
+.nf-top10-card.is-previewing {
+  z-index: 10;
+}
+
+.nf-inline-preview {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  background: #000;
+}
+
+.nf-inline-preview.ready {
+  opacity: 1;
+}
+
+.nf-inline-video {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 145%;
+  height: 145%;
+  transform: translate(-50%, -50%);
+  border: 0;
+  pointer-events: none;
+}
+
+.nf-top10-poster .nf-inline-video {
+  width: 310%;
+  height: 140%;
+}
+
+.nf-inline-mute {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.65);
+  background: rgba(16, 16, 16, 0.78);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.nf-inline-mute:hover,
+.nf-inline-mute:focus-visible {
+  background: rgba(255, 255, 255, 0.24);
+  border-color: #ffffff;
+}
+
+.nf-card-img.ken-burns,
+.nf-top10-poster img.ken-burns {
+  animation: nfKenBurns 11s ease-in-out infinite alternate;
+}
+
+.nf-hover-card {
+  display: none !important;
 }
 
 .nf-card:hover,

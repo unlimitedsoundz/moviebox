@@ -710,27 +710,27 @@ function sendYtCommand(iframe,func,args=[]){
   }catch{}
 }
 
-let hoverTimer=null,hoverLeaveTimer=null,activeHoverId=null;
+let hoverTimer=null,hoverLeaveTimer=null,activeHoverId=null,activePreviewCard=null;
 function hideHoverCard(){
   clearTimeout(hoverTimer);
   clearTimeout(hoverLeaveTimer);
   activeHoverId=null;
   activeHoverContext=null;
-  const pop=$('#hover-card');
-  if(pop){
-    pop.classList.remove('visible');
-    pop.hidden=true;
-    pop.setAttribute('aria-hidden','true');
-    pop.innerHTML='';
+  if(activePreviewCard){
+    activePreviewCard.classList.remove('is-previewing');
+    activePreviewCard.querySelector('.nf-inline-preview')?.remove();
+    activePreviewCard.querySelector('.nf-inline-mute')?.remove();
+    activePreviewCard.querySelector('.nf-card-img, .nf-top10-poster img')?.classList.remove('ken-burns');
+    activePreviewCard=null;
   }
-  if(activeHeroContext?.iframe&&!$('#hero-section')?.hidden){
+  if(activeHeroContext?.iframe&&!$('#hero-section')?.hidden&&window.scrollY<520){
     sendYtCommand(activeHeroContext.iframe,'playVideo');
   }
 }
 
 function mountHoverTrailer(ctx){
-  if(!ctx||activeHoverId!==ctx.id)return;
-  const {pop,wrap,muteBtn,backdropImg,movie,keys,cacheKey}=ctx;
+  if(!ctx||activeHoverId!==ctx.id||activePreviewCard!==ctx.cardEl)return;
+  const {wrap,muteBtn,backdropImg,movie,keys}=ctx;
   while(ctx.index<keys.length&&failedTrailerKeys.has(keys[ctx.index])){
     ctx.index++;
   }
@@ -748,7 +748,7 @@ function mountHoverTrailer(ctx){
   const mutedParam=hoverPreviewMuted?1:0;
   const originParam=encodeURIComponent(window.location.origin);
   const iframe=document.createElement('iframe');
-  iframe.className='nf-hover-video';
+  iframe.className='nf-inline-video';
   iframe.title=`${movie.title} 1080p HD preview`;
   iframe.allow='autoplay; encrypted-media; picture-in-picture';
   iframe.referrerPolicy='strict-origin-when-cross-origin';
@@ -930,91 +930,45 @@ window.addEventListener('message',event=>{
 });
 
 function showHoverCardFor(cardEl){
-  if(window.innerWidth<900)return;
-  const id=cardEl?.dataset?.id;
+  if(window.innerWidth<768)return;
+  if(!cardEl||activePreviewCard===cardEl)return;
+  const id=cardEl.dataset?.id;
   const movie=findMovieById(id);
-  const pop=$('#hover-card');
-  if(!movie||!pop)return;
+  if(!movie)return;
 
+  hideHoverCard();
   if(activeHeroContext?.iframe)sendYtCommand(activeHeroContext.iframe,'pauseVideo');
+
   activeHoverId=id;
-  const rawImg=movie.backdrop||movie.poster||'';
-  const img=rawImg.includes('image.tmdb.org/t/p/w500')?rawImg.replace('/t/p/w500','/t/p/w1280'):rawImg;
-  const logo=getMovieLogo(movie);
+  activePreviewCard=cardEl;
+  cardEl.classList.add('is-previewing');
+
+  const container=cardEl.querySelector('.nf-top10-poster')||cardEl;
+  const backdropImg=container.querySelector('.nf-card-img, img');
+
+  const wrap=document.createElement('div');
+  wrap.className='nf-inline-preview';
+  container.appendChild(wrap);
+
+  const muteBtn=document.createElement('button');
+  muteBtn.type='button';
+  muteBtn.className='nf-inline-mute';
+  muteBtn.hidden=true;
+  muteBtn.innerHTML=hoverPreviewMuted?SVG_VOLUME_OFF:SVG_VOLUME_ON;
+  muteBtn.setAttribute('aria-label',hoverPreviewMuted?'Unmute preview':'Mute preview');
+  muteBtn.title=hoverPreviewMuted?'Unmute':'Mute';
+  container.appendChild(muteBtn);
+
   const isTV=isTvSeries(movie);
-  const isSaved=saved.has(movie.id);
-  const genres=(movie.genres&&movie.genres.length?movie.genres:String(movie.genre||'').split(',').map(s=>s.trim())).filter(Boolean).slice(0,3);
-
-  pop.innerHTML=`
-    <div class="nf-hover-media" data-hover-open>
-      ${img?`<img class="nf-hover-backdrop" src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" />`:''}
-      <div class="nf-hover-video-wrap" id="hover-video-wrap"></div>
-      <div class="nf-hover-media-scrim"></div>
-      ${logo?`<img class="nf-hover-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(movie.title)}" onerror="this.remove();this.nextElementSibling&&(this.nextElementSibling.hidden=false)" />`:''}
-      <h4 class="nf-hover-title" ${logo?'hidden':''}>${escapeHtml(movie.title)}</h4>
-      <button type="button" class="nf-hover-mute-btn" id="hover-mute-btn" hidden aria-label="${hoverPreviewMuted?'Unmute preview':'Mute preview'}" title="${hoverPreviewMuted?'Unmute':'Mute'}">${hoverPreviewMuted?SVG_VOLUME_OFF:SVG_VOLUME_ON}</button>
-    </div>
-    <div class="nf-hover-body">
-      <div class="nf-hover-actions">
-        <button type="button" class="nf-circle-btn play" data-hover-play aria-label="Play ${escapeHtml(movie.title)}" title="Play">${SVG_PLAY}</button>
-        <button type="button" class="nf-circle-btn ${isSaved?'saved':''}" data-hover-save aria-label="${isSaved?'Remove from':'Add to'} My List" title="${isSaved?'In My List':'Add to My List'}">${isSaved?SVG_CHECK:SVG_PLUS}</button>
-        <button type="button" class="nf-circle-btn more" data-hover-info aria-label="More info about ${escapeHtml(movie.title)}" title="More info">${SVG_CHEVRON_DOWN}</button>
-      </div>
-      <div class="nf-hover-meta">
-        <span>${isTV?'Series':'Film'}</span>
-        ${movie.rating?`<span class="match-score">★ ${movie.rating.toFixed(1)}</span>`:''}
-        ${movie.year?`<span>${movie.year}</span>`:''}
-        <span class="nf-hover-badge" id="hover-age-rating" ${getMovieAgeRating(movie)?'':'hidden'}>${escapeHtml(getMovieAgeRating(movie))}</span>
-        <span class="nf-hover-badge">1080p HD</span>
-      </div>
-      ${genres.length?`<div class="nf-hover-genres">${genres.map(g=>`<span>${escapeHtml(g)}</span>`).join('<span class="genre-dot">•</span>')}</div>`:''}
-    </div>
-  `;
-
-  pop.hidden=false;
-  pop.setAttribute('aria-hidden','false');
-
-  const rect=cardEl.getBoundingClientRect();
-  const popW=560;
-  const popH=pop.offsetHeight||440;
-  let left=rect.left+(rect.width-popW)/2;
-  let top=rect.top+(rect.height-popH)/2;
-  const pad=16;
-  left=Math.max(pad,Math.min(window.innerWidth-popW-pad,left));
-  top=Math.max(74,Math.min(window.innerHeight-popH-pad,top));
-
-  pop.style.left=`${Math.round(left)}px`;
-  pop.style.top=`${Math.round(top)}px`;
-
-  requestAnimationFrame(()=>{
-    if(activeHoverId===id)pop.classList.add('visible');
-  });
-
-  pop.querySelector('[data-hover-open]')?.addEventListener('click',()=>{hideHoverCard();openDetailPage(movie,{autoplay:true})});
-  pop.querySelector('[data-hover-play]')?.addEventListener('click',e=>{e.stopPropagation();hideHoverCard();openDetailPage(movie,{autoplay:true})});
-  pop.querySelector('[data-hover-info]')?.addEventListener('click',e=>{e.stopPropagation();hideHoverCard();openMoreInfoModal(movie)});
-  pop.querySelector('[data-hover-save]')?.addEventListener('click',e=>{
-    e.stopPropagation();
-    const nowSaved=toggleSavedTitle(movie);
-    const btn=e.currentTarget;
-    btn.classList.toggle('saved',nowSaved);
-    btn.innerHTML=nowSaved?SVG_CHECK:SVG_PLUS;
-    btn.title=nowSaved?'In My List':'Add to My List';
-  });
-
-  // Load 1080p HD trailer preview with automatic multi-key failover & persistent cache
-  const backdropImg=pop.querySelector('.nf-hover-backdrop');
-  const wrap=pop.querySelector('#hover-video-wrap');
-  const muteBtn=pop.querySelector('#hover-mute-btn');
-  if(movie.tmdbId&&wrap){
+  if(movie.tmdbId){
     const cacheKey=`${isTV?'tv':'movie'}-${movie.tmdbId}`;
     getTrailerCandidates(movie).then(keys=>{
-      if(activeHoverId!==id)return;
+      if(activeHoverId!==id||activePreviewCard!==cardEl)return;
       if(!keys.length){
         backdropImg?.classList.add('ken-burns');
         return;
       }
-      const ctx={id,pop,wrap,muteBtn,backdropImg,movie,keys,cacheKey,index:0,iframe:null,currentKey:'',started:false};
+      const ctx={id,cardEl,wrap,muteBtn,backdropImg,movie,keys,cacheKey,index:0,iframe:null,currentKey:'',started:false};
       activeHoverContext=ctx;
       mountHoverTrailer(ctx);
     });
@@ -1024,14 +978,19 @@ function showHoverCardFor(cardEl){
 }
 
 (function initHoverPopoverListeners(){
-  const pop=$('#hover-card');
-  if(!pop)return;
-  pop.addEventListener('mouseenter',()=>clearTimeout(hoverLeaveTimer));
-  pop.addEventListener('mouseleave',()=>{
-    clearTimeout(hoverLeaveTimer);
-    hoverLeaveTimer=setTimeout(hideHoverCard,120);
-  });
-  window.addEventListener('scroll',()=>{if(activeHoverId)hideHoverCard()},{passive:true});
+  let scrollHideRaf=0;
+  window.addEventListener('scroll',()=>{
+    if(scrollHideRaf)return;
+    scrollHideRaf=requestAnimationFrame(()=>{
+      scrollHideRaf=0;
+      if(activeHoverId)hideHoverCard();
+      // Pause hero video decode when scrolled past hero for silky-smooth TV scrolling
+      if(activeHeroContext?.iframe&&!$('#hero-section')?.hidden){
+        if(window.scrollY>520)sendYtCommand(activeHeroContext.iframe,'pauseVideo');
+        else if(!activeHoverId)sendYtCommand(activeHeroContext.iframe,'playVideo');
+      }
+    });
+  },{passive:true});
 })();
 
 function bindHomeRows(){
@@ -2696,40 +2655,12 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     }
   });
 
-  // 2. Magnetic Pointer Snap: when moving virtual TV mouse over/near cards, buttons, search bar, snap focus cleanly
-  let pointerRaf=0;
-  document.addEventListener('pointermove',e=>{
-    if(pointerRaf)return;
-    pointerRaf=requestAnimationFrame(()=>{
-      pointerRaf=0;
-      const direct=document.elementFromPoint(e.clientX,e.clientY)?.closest(FOCUS_SELECTOR);
-      if(direct&&isElementVisible(direct)){
-        if(lastTvFocused!==direct){
-          setTvFocusRing(direct);
-          if(direct.tagName!=='INPUT'&&direct.tagName!=='SELECT'){
-            direct.focus({preventScroll:true});
-          }
-        }
-        return;
-      }
-      // Magnetic radius (26px) around buttons, search bar, and cards for VIDAA virtual mouse
-      const scope=getNavScope();
-      const nearTargets=[...scope.querySelectorAll('.nav-link, .icon-button, .button, .nf-modal-play-btn, .nf-circle-btn, .search-input, .nf-row-arrow')].filter(isElementVisible);
-      let snapped=null,minDist=26;
-      for(const el of nearTargets){
-        const r=el.getBoundingClientRect();
-        const dx=Math.max(r.left-e.clientX,0,e.clientX-r.right);
-        const dy=Math.max(r.top-e.clientY,0,e.clientY-r.bottom);
-        const dist=Math.hypot(dx,dy);
-        if(dist<minDist){
-          minDist=dist;
-          snapped=el;
-        }
-      }
-      if(snapped&&lastTvFocused!==snapped){
-        setTvFocusRing(snapped);
-      }
-    });
+  // 2. Zero-layout-thrash pointer focus snap (fast on VIDAA & Smart TV GPUs)
+  document.addEventListener('pointerover',e=>{
+    const direct=e.target?.closest?.(FOCUS_SELECTOR);
+    if(direct&&lastTvFocused!==direct&&isElementVisible(direct)){
+      setTvFocusRing(direct);
+    }
   },{passive:true});
 
   document.addEventListener('focusin',e=>{
