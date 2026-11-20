@@ -1822,12 +1822,14 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   hidePauseOverlay();
   if(embedded){
     applyAdBlockerSandbox();
-    frame.setAttribute('tabindex','0');
+    frame.setAttribute('tabindex','-1');
     frame.referrerPolicy=currentStreamServer==='vidlink'?'origin':'no-referrer';
     frame.onload=()=>{
       if(isPlayerActive()&&!frame.hidden){
         unmuteIframePlayer(frame);
-        try{frame.focus({preventScroll:true})}catch{}
+        try{frame.contentWindow?.postMessage({command:'getStatus'},'*')}catch{}
+        const stage=$('#player-stage');
+        if(stage){stage.setAttribute('tabindex','-1');try{stage.focus({preventScroll:true})}catch{}}
       }
     };
     const type=isTV?'tv':'movie';
@@ -2092,6 +2094,10 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
 }
 
 let playerHasStarted=false;
+let embedIsPlaying=true;
+let embedCurTime=0;
+let embedDuration=0;
+let embedVolume=1;
 let pendingResumeTarget=null;
 let nativeHudTimer=null;
 
@@ -2264,18 +2270,26 @@ function unmuteIframePlayer(frame){
 function enterFullscreenPlayer(movie){
   const stage=$('#player-stage');
   if(!stage)return;
+  embedIsPlaying=true;
+  embedCurTime=0;
+  embedDuration=0;
   stage.hidden=false;
   stage.classList.add('is-fullscreen');
+  stage.setAttribute('tabindex','-1');
   document.body.classList.add('player-fullscreen-mode');
   if(movie&&!window.location.hash.startsWith('#watch/')){
     history.pushState({view:'player',id:movie.id},'',`#watch/${encodeURIComponent(movie.id)}`);
   }
-  try{
-    if(!document.fullscreenElement&&!document.webkitFullscreenElement){
-      if(stage.requestFullscreen)stage.requestFullscreen().catch(()=>{});
-      else if(stage.webkitRequestFullscreen)stage.webkitRequestFullscreen();
-    }
-  }catch{}
+  // On VIDAA TV, CSS .is-fullscreen is already 100% fullscreen; skipping native requestFullscreen
+  // prevents native fullscreen from swallowing the remote Back button.
+  if(!document.body.classList.contains('vidaa-tv')){
+    try{
+      if(!document.fullscreenElement&&!document.webkitFullscreenElement){
+        if(stage.requestFullscreen)stage.requestFullscreen().catch(()=>{});
+        else if(stage.webkitRequestFullscreen)stage.webkitRequestFullscreen();
+      }
+    }catch{}
+  }
   setTimeout(()=>{
     if(isNativeVideoActive()){
       showNativeHud($('#nhud-play'),4000);
@@ -2284,9 +2298,50 @@ function enterFullscreenPlayer(movie){
     const frame=$('#stream-player');
     if(frame&&!frame.hidden){
       unmuteIframePlayer(frame);
-      try{frame.focus({preventScroll:true})}catch{}
+      try{stage.focus({preventScroll:true})}catch{}
     }
   },180);
+}
+
+['fullscreenchange','webkitfullscreenchange'].forEach(evt=>{
+  document.addEventListener(evt,()=>{
+    if(!document.fullscreenElement&&!document.webkitFullscreenElement&&isFullscreenPlayerActive()&&!document.body.classList.contains('vidaa-tv')){
+      exitFullscreenPlayer();
+    }
+  });
+});
+
+function embedTogglePlayPause(forcePlaying){
+  const frame=$('#stream-player');
+  if(!frame?.contentWindow||frame.hidden)return;
+  const nextPlaying=typeof forcePlaying==='boolean'?forcePlaying:!embedIsPlaying;
+  embedIsPlaying=nextPlaying;
+  const action=nextPlaying?'play':'pause';
+  try{frame.contentWindow.postMessage({command:action},'*')}catch{}
+  sendIframePlaybackCmd(frame,action);
+  notify(nextPlaying?'▶ Playing':'⏸ Paused');
+}
+
+function embedSeekBy(deltaSec){
+  const frame=$('#stream-player');
+  if(!frame?.contentWindow||frame.hidden)return;
+  const isTV=activeMovie?isTvSeries(activeMovie):false;
+  const prog=activeMovie?getResumeProgress(activeMovie.id,isTV?currentSeason:undefined,isTV?currentEpisode:undefined):{time:0};
+  const base=Math.max(embedCurTime,Number(prog.time)||0);
+  const target=Math.max(0,embedDuration>0?Math.min(embedDuration-1,base+deltaSec):base+deltaSec);
+  embedCurTime=target;
+  try{frame.contentWindow.postMessage({command:'seek',time:target},'*')}catch{}
+  enforceIframeSeek(frame,target);
+  notify(deltaSec>0?`⏩ +${deltaSec}s · ${formatTimestamp(target)}`:`⏪ ${deltaSec}s · ${formatTimestamp(target)}`);
+}
+
+function embedAdjustVolume(delta){
+  const frame=$('#stream-player');
+  if(!frame?.contentWindow||frame.hidden)return;
+  embedVolume=Math.max(0,Math.min(1,Math.round((embedVolume+delta)*10)/10));
+  try{frame.contentWindow.postMessage({command:'volume',level:embedVolume},'*')}catch{}
+  try{frame.contentWindow.postMessage({method:'setVolume',volume:embedVolume},'*')}catch{}
+  notify(embedVolume===0?'🔇 Muted':`🔊 Volume ${Math.round(embedVolume*100)}%`);
 }
 
 function exitFullscreenPlayer({fromHistory=false}={}){
@@ -2457,13 +2512,21 @@ window.addEventListener('message',event=>{
     }
   }
 
-  if(evtName==='play'||evtName==='playing'||(evtName==='timeupdate'&&Number.isFinite(seconds)&&seconds>1)||data.paused===false){
+  if(typeof data.volume==='number'&&Number.isFinite(data.volume)){
+    embedVolume=data.volume>1?Math.min(1,data.volume/100):Math.max(0,data.volume);
+  }
+  if(evtName==='play'||evtName==='playing'||(evtName==='timeupdate'&&Number.isFinite(seconds)&&seconds>1)||data.paused===false||data.playing===true){
     if(!playerHasStarted)unmuteIframePlayer(frame);
     playerHasStarted=true;
+    embedIsPlaying=true;
     hidePauseOverlay();
+  }else if(evtName==='pause'||evtName==='paused'||data.paused===true||data.playing===false){
+    embedIsPlaying=false;
   }
 
   if(Number.isFinite(seconds)&&seconds>0){
+    embedCurTime=Math.floor(seconds);
+    if(Number.isFinite(duration)&&duration>0)embedDuration=Math.floor(duration);
     progressItems[activeMovie.id]=activeMovie;
     const isCompleted=data.player_status==='completed'||(Number.isFinite(duration)&&duration>0&&seconds>=duration-15);
     savePlaybackProgress(activeMovie.id,{
@@ -3202,15 +3265,30 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     }
 
     // B. Fullscreen Player Remote Control:
-    //    - Native HTML5/HLS <video>: 100% full Netflix TV D-Pad control (Play/Pause, -10s/+10s, Mute, CC, Quality)
-    //    - Third-party iframe embed: pass D-Pad straight to embed (Back already exits fullscreen in section A)
+    //    - Native HTML5/HLS <video>: full Netflix TV D-Pad HUD
+    //    - VidFast / Embed iframe: ZERO duplicate controls, direct postMessage remote control!
+    //      OK/Enter = Play/Pause, Left/Right = -10s/+10s, Up/Down = Volume, Back = Exit Fullscreen
     if(isFullscreenPlayerActive()){
       if(kc===413){e.preventDefault();e.stopPropagation();exitFullscreenPlayer();return}
-      if(!isNativeVideoActive())return;
-
       const dirMap={ArrowRight:'right',ArrowLeft:'left',ArrowDown:'down',ArrowUp:'up'};
       const dir=dirMap[e.key];
       const isOk=e.key==='Enter'||kc===13||e.key===' ';
+
+      if(!isNativeVideoActive()){
+        if(isOk||kc===415||kc===19||kc===179||e.key==='MediaPlayPause'){
+          e.preventDefault();e.stopPropagation();
+          if(kc===19)embedTogglePlayPause(false);
+          else if(kc===415)embedTogglePlayPause(true);
+          else embedTogglePlayPause();
+          return;
+        }
+        if(dir==='left'||kc===412){e.preventDefault();e.stopPropagation();embedSeekBy(-10);return}
+        if(dir==='right'||kc===417){e.preventDefault();e.stopPropagation();embedSeekBy(10);return}
+        if(dir==='up'){e.preventDefault();e.stopPropagation();embedAdjustVolume(0.1);return}
+        if(dir==='down'){e.preventDefault();e.stopPropagation();embedAdjustVolume(-0.1);return}
+        return;
+      }
+
       if(kc===415||kc===19||kc===179||e.key==='MediaPlayPause'){
         e.preventDefault();e.stopPropagation();nativeTogglePlayPause();return;
       }
