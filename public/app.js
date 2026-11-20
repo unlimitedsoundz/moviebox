@@ -1822,14 +1822,12 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   hidePauseOverlay();
   if(embedded){
     applyAdBlockerSandbox();
-    frame.setAttribute('tabindex','-1');
+    frame.setAttribute('tabindex','0');
     frame.referrerPolicy=currentStreamServer==='vidlink'?'origin':'no-referrer';
     frame.onload=()=>{
       if(isPlayerActive()&&!frame.hidden){
         unmuteIframePlayer(frame);
-        try{frame.contentWindow?.postMessage({command:'getStatus'},'*')}catch{}
-        const stage=$('#player-stage');
-        if(stage){stage.setAttribute('tabindex','-1');try{stage.focus({preventScroll:true})}catch{}}
+        try{frame.focus({preventScroll:true})}catch{}
       }
     };
     const type=isTV?'tv':'movie';
@@ -2298,7 +2296,7 @@ function enterFullscreenPlayer(movie){
     const frame=$('#stream-player');
     if(frame&&!frame.hidden){
       unmuteIframePlayer(frame);
-      try{stage.focus({preventScroll:true})}catch{}
+      try{frame.focus({preventScroll:true})}catch{}
     }
   },180);
 }
