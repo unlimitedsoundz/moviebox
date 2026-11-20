@@ -509,17 +509,24 @@ async function hydrateLogosForMovies(list){
   }
 }
 
+function optimizeTmdbImg(url,size){
+  if(!url||!url.includes('image.tmdb.org/t/p/'))return url||'';
+  return url.replace(/\/t\/p\/w\d+\//,`/t/p/${size}/`);
+}
+
 function renderLandscapeCard(movie,index,rowId,{showProgress=false}={}){
-  const img=movie.backdrop||movie.poster||'';
-  const logo=getMovieLogo(movie);
+  const rawImg=movie.backdrop||movie.poster||'';
+  const img=optimizeTmdbImg(rawImg,'w780');
+  const rawLogo=getMovieLogo(movie);
+  const logo=optimizeTmdbImg(rawLogo,'w300');
   const pct=showProgress?(progress[movie.id]?.pct||0):0;
   const badge=showProgress?'':getCardBadge(movie,index,rowId);
   const showMono=movie.mediaType==='tv'||index%2===0;
   return `<article class="nf-card ${badge?'has-badge':''}" data-id="${escapeHtml(movie.id)}" tabindex="0" role="button" aria-label="${escapeHtml(movie.title)}">
-    ${img?`<img class="nf-card-img" src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" loading="lazy" />`:''}
+    ${img?`<img class="nf-card-img" src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" loading="lazy" decoding="async" />`:''}
     <div class="nf-card-scrim"></div>
     ${showMono?`<span class="nf-card-monogram" aria-hidden="true">M</span>`:''}
-    ${logo?`<img class="nf-card-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(movie.title)}" loading="lazy" onerror="this.remove();this.nextElementSibling&&(this.nextElementSibling.hidden=false)" />`:''}
+    ${logo?`<img class="nf-card-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(movie.title)}" loading="lazy" decoding="async" onerror="this.remove();this.nextElementSibling&&(this.nextElementSibling.hidden=false)" />`:''}
     <h3 class="nf-card-title" ${logo?'hidden':''}>${escapeHtml(movie.title)}</h3>
     ${badge?`<span class="nf-card-badge">${escapeHtml(badge)}</span>`:''}
     ${pct>0?`<div class="nf-card-progress"><div class="nf-card-progress-fill" style="width:${pct}%"></div></div>`:''}
@@ -527,7 +534,8 @@ function renderLandscapeCard(movie,index,rowId,{showProgress=false}={}){
 }
 
 function renderTop10Card(movie,rank,rowId){
-  const img=movie.poster||movie.backdrop||'';
+  const rawImg=movie.poster||movie.backdrop||'';
+  const img=optimizeTmdbImg(rawImg,'w342');
   const badge=getCardBadge(movie,rank-1,rowId);
   const isTen=rank>=10;
   return `<article class="nf-top10-card">
@@ -535,7 +543,7 @@ function renderTop10Card(movie,rank,rowId){
       <text x="${isTen?'72':'52'}" y="198" text-anchor="middle" font-size="${isTen?'212':'246'}" letter-spacing="${isTen?'-18':'-4'}">${rank}</text>
     </svg>
     <div class="nf-top10-poster" data-id="${escapeHtml(movie.id)}" tabindex="0" role="button" aria-label="Number ${rank}: ${escapeHtml(movie.title)}">
-      ${img?`<img src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" loading="lazy" />`:''}
+      ${img?`<img src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" loading="lazy" decoding="async" />`:''}
       ${badge?`<span class="nf-card-badge">${escapeHtml(badge)}</span>`:''}
     </div>
   </article>`;
@@ -544,7 +552,8 @@ function renderTop10Card(movie,rank,rowId){
 function renderNetflixRow({id,title,items,type='landscape',showProgress=false}){
   const unique=getUniqueMovies(items);
   if(!unique.length)return '';
-  const list=type==='top10'?unique.slice(0,10):unique.slice(0,18);
+  const rowCap=document.body.classList.contains('vidaa-tv')?12:18;
+  const list=type==='top10'?unique.slice(0,10):unique.slice(0,rowCap);
   const cardsHtml=type==='top10'
     ? list.map((m,i)=>renderTop10Card(m,i+1,id)).join('')
     : list.map((m,i)=>renderLandscapeCard(m,i,id,{showProgress})).join('');
@@ -1020,13 +1029,14 @@ function bindHomeRows(){
     el.onmouseenter=()=>{
       clearTimeout(hoverLeaveTimer);
       clearTimeout(hoverTimer);
-      showHoverCardFor(el);
+      // 140ms settle avoids spawning wasted YouTube iframes while gliding across cards
+      hoverTimer=setTimeout(()=>showHoverCardFor(el),140);
     };
     el.onfocus=()=>{
       if(window.innerWidth<768)return;
       clearTimeout(hoverLeaveTimer);
       clearTimeout(hoverTimer);
-      showHoverCardFor(el);
+      hoverTimer=setTimeout(()=>showHoverCardFor(el),180);
     };
     el.onmouseleave=()=>{
       clearTimeout(hoverTimer);
@@ -1186,6 +1196,11 @@ function render(){
     const visibleHomeIds=[...new Set($$('#home-shelves .nf-card').map(el=>el.dataset.id))];
     const visibleHomeMovies=visibleHomeIds.map(id=>findMovieById(id)).filter(Boolean);
     hydrateLogosForMovies([...heroMovies,...visibleHomeMovies]);
+    // Pre-warm trailer keys for the first 8 visible landscape cards so previews start with zero API delay
+    const toWarm=visibleHomeMovies.slice(0,8);
+    setTimeout(()=>{
+      toWarm.forEach(m=>{if(m&&m.tmdbId)getTrailerCandidates(m).catch(()=>{})});
+    },600);
   }
 }
 function renderPagination(){const nav=$('#pagination');if(!nav)return;nav.hidden=totalPages<=1;const start=Math.max(1,Math.min(currentPage-2,totalPages-4)),end=Math.min(totalPages,start+4);let html=`<button class="page-button" data-page="${currentPage-1}" ${currentPage===1?'disabled':''} aria-label="Previous page">${SVG_PREV}</button>`;for(let p=start;p<=end;p++)html+=`<button class="page-button ${p===currentPage?'current':''}" data-page="${p}" ${p===currentPage?'aria-current="page"':''}>${p}</button>`;html+=`<button class="page-button" data-page="${currentPage+1}" ${currentPage===totalPages?'disabled':''} aria-label="Next page">${SVG_NEXT}</button>`;nav.innerHTML=html;nav.querySelectorAll('[data-page]').forEach(b=>b.onclick=async()=>{const page=Number(b.dataset.page);if(page>=1&&page<=totalPages&&page!==currentPage){isListView=true;const q=searchInput?.value.trim()||'';await loadTMDBCatalog(q,page);scrollToList()}})}
@@ -2603,6 +2618,34 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
   }
 
   function findNextSpatialTarget(current,dir){
+    // O(1) fast-path for horizontal D-pad navigation inside any carousel row (instant reaction on TV)
+    const curTrack=current?.closest?.('.nf-row-track');
+    if(curTrack&&(dir==='left'||dir==='right')){
+      const items=[...curTrack.querySelectorAll('.nf-card, .nf-top10-poster')];
+      const idx=items.indexOf(current);
+      if(idx!==-1){
+        const nextIdx=dir==='right'?idx+1:idx-1;
+        if(nextIdx>=0&&nextIdx<items.length)return items[nextIdx];
+      }
+    }
+    // O(1) fast-path for vertical D-pad jumps between adjacent carousel rows
+    const curRow=current?.closest?.('.nf-row-section');
+    if(curRow&&(dir==='up'||dir==='down')){
+      const adjRow=dir==='down'?curRow.nextElementSibling:curRow.previousElementSibling;
+      if(adjRow&&adjRow.classList.contains('nf-row-section')){
+        const adjItems=[...adjRow.querySelectorAll('.nf-card, .nf-top10-poster')];
+        if(adjItems.length){
+          const cx=current.getBoundingClientRect().left;
+          let bestItem=adjItems[0],bestDx=Infinity;
+          for(const item of adjItems){
+            const d=Math.abs(item.getBoundingClientRect().left-cx);
+            if(d<bestDx){bestDx=d;bestItem=item}
+          }
+          return bestItem;
+        }
+      }
+    }
+
     const candidates=getFocusableList().filter(el=>el!==current);
     if(!candidates.length)return null;
     if(!current||!isElementVisible(current))return candidates[0];
@@ -2625,10 +2668,7 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
       else if(dir==='down'){if(dy<=6)continue;primary=dy;secondary=Math.abs(dx)}
       else if(dir==='up'){if(dy>=-6)continue;primary=-dy;secondary=Math.abs(dx)}
 
-      // Prefer elements aligned along the axis of travel (especially within the same horizontal row)
-      const sameRow=current.closest('.nf-row-track')&&current.closest('.nf-row-track')===el.closest('.nf-row-track');
-      const rowBonus=(sameRow&&(dir==='left'||dir==='right'))?0.45:1;
-      const score=(primary+secondary*2.6)*rowBonus;
+      const score=primary+secondary*2.6;
       if(score<bestScore){
         bestScore=score;
         best=el;
@@ -2702,7 +2742,7 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
     next.focus({preventScroll:true});
     setTvFocusRing(next);
     try{
-      next.scrollIntoView({behavior:'smooth',block:'center',inline:'center'});
+      next.scrollIntoView({behavior:isVidaaTv?'auto':'smooth',block:'center',inline:'center'});
     }catch{
       next.scrollIntoView(false);
     }
@@ -2711,7 +2751,7 @@ $('#player-fullscreen')?.addEventListener('click',toggleFullscreen);
   // 2. Zero-layout-thrash pointer focus snap (fast on VIDAA & Smart TV GPUs)
   document.addEventListener('pointerover',e=>{
     const direct=e.target?.closest?.(FOCUS_SELECTOR);
-    if(direct&&lastTvFocused!==direct&&isElementVisible(direct)){
+    if(direct&&lastTvFocused!==direct){
       setTvFocusRing(direct);
     }
   },{passive:true});
