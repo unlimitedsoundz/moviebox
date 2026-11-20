@@ -195,6 +195,54 @@ async function fetchRecent24h(apiKey, genreNames, region = 'US') {
     .map(m => ({ ...mapTmdbItem(m, m._mediaType, genreNames), isRecent24h: true }));
 }
 
+async function fetchNewlyAddedFilms(apiKey, genreNames, region = 'US') {
+  const now = new Date();
+  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+  const todayStr = now.toISOString().slice(0, 10);
+  const sinceStr = sixtyDaysAgo.toISOString().slice(0, 10);
+
+  const [newestDigital, newestPrimary, nowPlaying] = await Promise.all([
+    tmdb(apiKey, '/discover/movie', {
+      'primary_release_date.gte': sinceStr,
+      'primary_release_date.lte': todayStr,
+      with_release_type: '4|3|2',
+      'vote_count.gte': '3',
+      sort_by: 'primary_release_date.desc',
+      include_adult: 'false',
+      page: '1'
+    }).catch(() => ({ results: [] })),
+    tmdb(apiKey, '/discover/movie', {
+      'release_date.gte': sinceStr,
+      'release_date.lte': todayStr,
+      region,
+      'vote_count.gte': '5',
+      sort_by: 'release_date.desc',
+      include_adult: 'false',
+      page: '1'
+    }).catch(() => ({ results: [] })),
+    tmdb(apiKey, '/movie/now_playing', { page: '1', region }).catch(() => ({ results: [] }))
+  ]);
+
+  const raw = [
+    ...(newestDigital.results || []),
+    ...(newestPrimary.results || []),
+    ...(nowPlaying.results || [])
+  ];
+  const withArtFirst = [
+    ...raw.filter(item => item && item.backdrop_path && item.poster_path),
+    ...raw.filter(item => item && (item.backdrop_path || item.poster_path))
+  ];
+  const seen = new Set();
+  const out = [];
+  for (const item of withArtFirst) {
+    if (!item || !item.id || seen.has(item.id)) continue;
+    seen.add(item.id);
+    out.push({ ...mapTmdbItem(item, 'movie', genreNames), isRecent24h: true });
+    if (out.length >= 18) break;
+  }
+  return out;
+}
+
 async function tmdb(apiKey, pathname, params = {}) {
   if (!apiKey) throw new Error('TMDB_API_KEY is missing');
   const cleanKey = apiKey.trim();
@@ -392,7 +440,8 @@ module.exports = async function handler(req, res) {
           topRatedMovies,
           adrenalineMoviesRes,
           crimeDramaTvRes,
-          thrillerMoviesRes
+          thrillerMoviesRes,
+          newlyAddedFilms
         ] = await Promise.all([
           tmdb(apiKey, '/trending/movie/day', { page: String(page) }).catch(() => ({ results: [] })),
           tmdb(apiKey, '/trending/tv/day', { page: String(page) }).catch(() => ({ results: [] })),
@@ -403,7 +452,8 @@ module.exports = async function handler(req, res) {
           page === 1 ? tmdb(apiKey, '/movie/top_rated', { page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
           page === 1 ? tmdb(apiKey, '/discover/movie', { with_genres: '28,12', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
           page === 1 ? tmdb(apiKey, '/discover/tv', { with_genres: '80,9648,18', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
-          page === 1 ? tmdb(apiKey, '/discover/movie', { with_genres: '53,80,9648', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] })
+          page === 1 ? tmdb(apiKey, '/discover/movie', { with_genres: '53,80,9648', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
+          page === 1 ? fetchNewlyAddedFilms(apiKey, genreNames, region).catch(() => []) : Promise.resolve([])
         ]);
         const movieList = [...(trendMovies.results || []), ...(nowPlaying.results || [])].map(m => ({ ...m, _mediaType: 'movie' }));
         const tvList = [...(trendTv.results || []), ...(onAir.results || [])].map(m => ({ ...m, _mediaType: 'tv' }));
@@ -437,6 +487,7 @@ module.exports = async function handler(req, res) {
           homeShelves = {
             mode: 'all',
             topPicks,
+            newlyAddedFilms: newlyAddedFilms.length ? newlyAddedFilms : newReleases,
             top10Series,
             bingeworthyTv,
             top10Films,
@@ -488,7 +539,8 @@ module.exports = async function handler(req, res) {
           adrenalineMoviesRes,
           thrillerMoviesRes,
           sciFiMoviesRes,
-          comedyMoviesRes
+          comedyMoviesRes,
+          newlyAddedFilms
         ] = await Promise.all([
           tmdb(apiKey, '/trending/movie/day', { page: '1' }).catch(() => ({ results: [] })),
           tmdb(apiKey, '/movie/now_playing', { page: '1', region }).catch(() => ({ results: [] })),
@@ -496,15 +548,18 @@ module.exports = async function handler(req, res) {
           tmdb(apiKey, '/discover/movie', { with_genres: '28,12', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })),
           tmdb(apiKey, '/discover/movie', { with_genres: '53,80,9648', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })),
           tmdb(apiKey, '/discover/movie', { with_genres: '878,14', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })),
-          tmdb(apiKey, '/discover/movie', { with_genres: '35', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] }))
+          tmdb(apiKey, '/discover/movie', { with_genres: '35', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })),
+          fetchNewlyAddedFilms(apiKey, genreNames, region).catch(() => [])
         ]);
-        const movieList = [...(trendMovies.results || []), ...(nowPlaying.results || [])].map(m => ({ ...m, _mediaType: 'movie' }));
+        const movieList = [...(nowPlaying.results || []), ...(trendMovies.results || [])].map(m => ({ ...m, _mediaType: 'movie' }));
         sourceResults = movieList;
         totalPages = trendMovies.total_pages || 1;
         totalResults = trendMovies.total_results || movieList.length;
+        const freshFilms = newlyAddedFilms.length ? newlyAddedFilms : mapUnique(nowPlaying.results || [], 'movie', 18);
         homeShelves = {
           mode: 'movie',
-          topPicks: mapUnique([...(trendMovies.results || []).slice(2), ...(nowPlaying.results || [])], 'movie', 18),
+          newlyAddedFilms: freshFilms,
+          topPicks: freshFilms,
           top10Films: mapUnique(trendMovies.results || nowPlaying.results || [], 'movie', 10),
           newReleases: mapUnique(nowPlaying.results || [], 'movie', 18),
           adrenalineMovies: mapUnique(adrenalineMoviesRes.results || [], 'movie', 18),

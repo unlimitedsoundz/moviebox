@@ -386,7 +386,7 @@ function toggleSavedTitle(movie){
 }
 
 function getCardBadge(movie,index,rowId){
-  if(rowId==='new-releases'||movie.isRecent24h)return 'Recently Added';
+  if(rowId==='newly-added'||rowId==='new-releases'||movie.isRecent24h)return 'Recently Added';
   if(rowId==='top10-series'||rowId==='bingeworthy-tv'){
     if(index%3===0)return 'New Season';
     if(index%3===1)return 'New Episodes';
@@ -622,11 +622,12 @@ function buildHomeRows(filtered,watching){
     const moviesOnly=filtered.filter(m=>!isTvSeries(m));
     const savedMovies=savedList.filter(m=>!isTvSeries(m));
     const watchingMovies=watching.filter(m=>!isTvSeries(m));
+    const newlyAdded=(hs.mode==='movie'&&(hs.newlyAddedFilms?.length?hs.newlyAddedFilms:hs.topPicks))||moviesOnly;
     const rows=[
-      {id:'top-picks',title:'Trending Films Now',items:(hs.mode==='movie'&&hs.topPicks?.length?hs.topPicks:moviesOnly),type:'landscape'},
+      {id:'newly-added',title:'Newly Added Films',items:newlyAdded,type:'landscape'},
       ...(savedMovies.length?[{id:'my-list',title:'My Films List',items:savedMovies,type:'landscape'}]:[]),
       {id:'top10-films',title:'Top 10 Films Today',items:(hs.mode==='movie'&&hs.top10Films?.length?hs.top10Films:moviesOnly).slice(0,10),type:'top10'},
-      ...(hs.mode==='movie'&&hs.newReleases?.length?[{id:'new-releases',title:'Now Playing & New Releases',items:hs.newReleases,type:'landscape'}]:[]),
+      ...(hs.mode==='movie'&&hs.newReleases?.length?[{id:'new-releases',title:'Now Playing in Theaters',items:hs.newReleases,type:'landscape'}]:[]),
       ...(watchingMovies.length?[{id:'continue-watching',title:'Continue Watching',items:watchingMovies,type:'landscape',showProgress:true}]:[]),
       {id:'adrenaline-movies',title:'Adrenaline Rush Movies',items:(hs.mode==='movie'&&hs.adrenalineMovies?.length?hs.adrenalineMovies:moviesOnly.slice(4)),type:'landscape'},
       ...(hs.mode==='movie'&&hs.crimeMystery?.length?[{id:'crime-mystery',title:'Crime, Mystery & Thrillers',items:hs.crimeMystery,type:'landscape'}]:[]),
@@ -641,6 +642,7 @@ function buildHomeRows(filtered,watching){
   const fallbackMovies=filtered.filter(m=>m.mediaType!=='tv');
 
   const topPicks=(hs.topPicks?.length?hs.topPicks:filtered).slice(0,18);
+  const newlyAddedFilms=(hs.newlyAddedFilms?.length?hs.newlyAddedFilms:(recentCatalog.length?recentCatalog:fallbackMovies)).slice(0,18);
   const top10Series=(hs.top10Series?.length?hs.top10Series:(fallbackTv.length?fallbackTv:filtered)).slice(0,10);
   const bingeworthyTv=(hs.bingeworthyTv?.length?hs.bingeworthyTv:fallbackTv.slice(4)).slice(0,18);
   const top10Films=(hs.top10Films?.length?hs.top10Films:(fallbackMovies.length?fallbackMovies:filtered)).slice(0,10);
@@ -651,6 +653,7 @@ function buildHomeRows(filtered,watching){
   const crimeMystery=(hs.crimeMystery?.length?hs.crimeMystery:fallbackMovies).slice(0,18);
 
   const rows=[
+    ...(newlyAddedFilms.length?[{id:'newly-added',title:'Newly Added Films',items:newlyAddedFilms,type:'landscape'}]:[]),
     {id:'top-picks',title:"Today's Top Picks for You",items:topPicks,type:'landscape'},
     ...(savedList.length?[{id:'my-list',title:'My List',items:savedList,type:'landscape'}]:[]),
     ...(top10Series.length?[{id:'top10-series',title:'Top 10 Series Today',items:top10Series,type:'top10'}]:[]),
