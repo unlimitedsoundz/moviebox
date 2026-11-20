@@ -2198,6 +2198,7 @@ function nativeSeekBy(deltaSec){
   notify(deltaSec>0?`⏩ +${deltaSec}s · ${formatTimestamp(target)}`:`⏪ ${deltaSec}s · ${formatTimestamp(target)}`);
 }
 
+$('#fs-back-btn')?.addEventListener('click',()=>exitFullscreenPlayer());
 $('#nhud-back')?.addEventListener('click',()=>exitFullscreenPlayer());
 $('#nhud-play')?.addEventListener('click',()=>nativeTogglePlayPause());
 $('#nhud-rw')?.addEventListener('click',()=>nativeSeekBy(-10));

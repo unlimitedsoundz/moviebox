@@ -4194,6 +4194,40 @@ body.player-fullscreen-mode footer {
   display: none !important;
 }
 
+.fs-back-btn {
+  display: none;
+}
+
+.player-stage.is-fullscreen .fs-back-btn {
+  position: fixed;
+  top: 20px;
+  left: 24px;
+  z-index: 10005;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.32);
+  background: rgba(16, 16, 16, 0.72);
+  color: #ffffff;
+  font: 700 15px "Inter", sans-serif;
+  cursor: pointer;
+  opacity: 0.75;
+  transition: opacity 0.18s ease, background 0.18s ease;
+}
+
+.player-stage.is-fullscreen .fs-back-btn:hover,
+.player-stage.is-fullscreen .fs-back-btn:focus-visible,
+.player-stage.is-fullscreen .fs-back-btn.tv-focus {
+  opacity: 1;
+  background: #e50914;
+  border-color: #ffffff;
+  outline: 3px solid #ffffff !important;
+  outline-offset: 2px;
+}
+
 /* Crisp Netflix-style Subtitles for Native HTML5/HLS Video Player */
 #video-player::cue {
   background: transparent;
