@@ -3546,9 +3546,17 @@ $('#adblock-setting-toggle')?.addEventListener('change',e=>setAdBlocker(e.target
 $('#server-select')?.addEventListener('change',e=>{currentStreamServer=STREAM_SERVERS[e.target.value]?e.target.value:'vidfast';localStorage.setItem('moviebox-stream-server-v5',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||STREAM_SERVERS[currentStreamServer]}`);playMovie(activeMovie)}});
 $('#player-reload')?.addEventListener('click',()=>{if(activeMovie&&isPlayerActive()){notify('↻ Reloading stream with Ad Shield active…');playMovie(activeMovie)}});
 document.addEventListener('keydown',e=>{if(e.key==='/'&&!e.metaKey&&!e.ctrlKey&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();openSearch()}if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&isPlayerActive()&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();toggleFullscreen()}});
+function hideAppSplash(){
+  const splash=$('#app-splash');
+  if(!splash||splash.classList.contains('is-hidden'))return;
+  splash.classList.add('is-hidden');
+  setTimeout(()=>{try{splash.remove()}catch{}},400);
+}
+setTimeout(hideAppSplash,3200);
+
 applyAdBlockerSandbox();
 updateAdBlockUI();
 refreshFilterOptions();
 render();
 handleRoute();
-loadTMDBCatalog().then(()=>{if(window.location.hash.startsWith('#title/')&&currentView!=='detail')handleRoute()}).catch(err=>{console.warn('TMDB catalog unavailable',err);notify('TMDB unavailable · Loading free classic films');loadInternetArchive()});
+loadTMDBCatalog().then(()=>{hideAppSplash();if(window.location.hash.startsWith('#title/')&&currentView!=='detail')handleRoute()}).catch(err=>{hideAppSplash();console.warn('TMDB catalog unavailable',err);notify('TMDB unavailable · Loading free classic films');loadInternetArchive()});
