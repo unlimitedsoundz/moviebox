@@ -4535,8 +4535,7 @@ footer button.tv-focus {
 .app-splash-icon {
   width: 76px;
   height: 76px;
-  border-radius: 16px;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.75);
+  background: transparent;
 }
 
 .app-splash-logo {

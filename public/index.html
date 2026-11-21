@@ -24,20 +24,18 @@
     .app-splash{position:fixed;inset:0;z-index:99999;background:#141414;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;transition:opacity .32s ease,visibility .32s ease}
     .app-splash.is-hidden{opacity:0;visibility:hidden;pointer-events:none}
     .app-splash-brand{display:flex;flex-direction:column;align-items:center;gap:14px;user-select:none}
-    .app-splash-icon{width:76px;height:76px;border-radius:16px;box-shadow:0 12px 34px rgba(0,0,0,.75)}
+    .app-splash-icon{width:76px;height:76px;background:transparent}
     .app-splash-logo{font-family:"Bebas Neue",Impact,"Arial Black",sans-serif;font-size:clamp(58px,7.5vw,96px);font-weight:900;letter-spacing:5px;color:#e50914;line-height:1;user-select:none}
     .app-splash-spinner{width:56px;height:56px;border-radius:50%;border:4.5px solid rgba(229,9,20,.2);border-top-color:#e50914;animation:mbSplashSpin .75s linear infinite}
     @keyframes mbSplashSpin{to{transform:rotate(360deg)}}
   </style>
-  <link rel="stylesheet" href="styles.css?v=20261121h" />
+  <link rel="stylesheet" href="styles.css?v=20261121i" />
 </head>
 <body>
   <div class="app-splash" id="app-splash" aria-label="Loading MovieBox">
     <div class="app-splash-brand">
       <svg class="app-splash-icon" viewBox="0 0 512 512" aria-hidden="true">
-        <rect width="512" height="512" rx="112" fill="#0d0d0d"/>
-        <rect x="8" y="8" width="496" height="496" rx="104" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="6"/>
-        <path d="M116 396V116h64l76 168 76-168h64v280h-58V222l-62 140h-40l-62-140v174h-58z" fill="#e50914"/>
+        <path d="M96 416V96h72l88 192 88-192h72v320h-66V214l-70 158h-48l-70-158v202H96z" fill="#e50914"/>
       </svg>
       <div class="app-splash-logo">MOVIEBOX</div>
     </div>
@@ -311,6 +309,6 @@
   <div class="nf-hover-card" id="hover-card" hidden aria-hidden="true"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <dialog id="server-dialog" class="server-dialog"><div class="settings-head"><div><p class="kicker">PREFERENCES &amp; LIBRARY</p><h2>Settings &amp; Library</h2></div><button class="close-button" data-close="server-dialog" aria-label="Close settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div><div class="settings-adblock-card"><div class="adblock-card-header"><span class="adblock-card-icon">🛡️</span><div><h3>Inbuilt Ad &amp; Redirect Blocker</h3><p>Blocks malicious redirects, popups, and tab hijacking when streaming movies and TV shows.</p></div></div><div class="adblock-card-controls"><label class="toggle-control"><input type="checkbox" id="adblock-setting-toggle" checked /><span class="toggle-slider"></span><span class="toggle-label" id="adblock-setting-label">Protection Active</span></label><span class="adblock-status-pill" id="adblock-stats-summary">Shield active</span></div></div><p class="settings-copy">Connect a movie server or catalog API to bring your own authorized library into MovieBox.</p><form id="server-form"><label>Catalog API URL<input id="server-url" type="url" placeholder="https://your-server.example/api/movies" /></label><label>Access token <span class="optional">optional</span><input id="server-token" type="password" placeholder="Your server token" autocomplete="off" /></label><button type="submit" class="button button-primary settings-submit">Save connection</button></form><div class="api-hint"><strong>Expected catalog format</strong><code>[{ "id":"1", "title":"...", "year":2025, "genre":"Drama", "poster":"https://…", "description":"…", "rating":8.1, "duration":"1h 42m", "videoUrl":"https://…", "subtitlesUrl":"https://…" }]</code><span>Use a server that permits browser playback (CORS) and provides media you’re authorized to watch.</span></div></dialog>
-  <script src="app.js?v=20261121h"></script>
+  <script src="app.js?v=20261121i"></script>
 </body>
 </html>
