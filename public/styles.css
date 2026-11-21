@@ -2859,10 +2859,6 @@ footer small {
   overscroll-behavior: auto;
 }
 
-.player-media-wrap.is-scrolling #stream-player {
-  pointer-events: none;
-}
-
 .player-scroll-edge {
   position: absolute;
   top: 0;

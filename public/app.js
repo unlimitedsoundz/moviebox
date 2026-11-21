@@ -2,8 +2,7 @@ const IS_VIDAA_TV = (()=>{
   try{
     const qs=new URLSearchParams(window.location.search).get('tv')==='vidaa';
     const ua=/VIDAA|Hisense|SmartTV|HbbTV|Tizen|Web0S|NetCast|BRAVIA|PhilipsTV|Opera TV/i.test(navigator.userAgent||'');
-    const tvScreen=window.innerWidth>=960&&window.matchMedia&&!window.matchMedia('(hover: hover)').matches;
-    const isTv=qs||ua||tvScreen;
+    const isTv=qs||ua;
     if(isTv)document.body?.classList?.add('vidaa-tv');
     return isTv;
   }catch{return false}
@@ -334,15 +333,15 @@ function getStreamUrl(server,type,tmdbId,startAt=0,season=1,episode=1){
     return resumeSec > 0 ? `${base}&t=${resumeSec}&startAt=${resumeSec}` : base;
   }
   if(chosen === 'vidlink'){
-    const common = 'player=jwplayer&primaryColor=e50914&secondaryColor=181818&iconColor=ffffff&autoplay=false&muted=false&mute=0&volume=1&title=true&poster=false&quality=1080&defaultQuality=1080&sub_lang=en&subtitle=en&defaultSubtitle=en&captions=en&lang=en';
+    const common = 'primaryColor=e50914&secondaryColor=181818&iconColor=ffffff&autoplay=true&title=true&poster=true';
     const base = isTV
       ? `https://vidlink.pro/tv/${id}/${s}/${e}?${common}&nextbutton=true`
       : `https://vidlink.pro/movie/${id}?${common}`;
     return resumeSec > 0 ? `${base}&start=${resumeSec}&startAt=${resumeSec}&t=${resumeSec}` : base;
   }
   const base = isTV
-    ? `https://vidfast.vc/tv/${id}/${s}/${e}?autoPlay=true&muted=false&mute=0&volume=1&vol=100&theme=E50914&title=true&poster=false&nextButton=true&autoNext=true&defaultQuality=1080&sub=en&lang=en&audio=en`
-    : `https://vidfast.vc/movie/${id}?autoPlay=true&muted=false&mute=0&volume=1&vol=100&theme=E50914&title=true&poster=false&defaultQuality=1080&sub=en&lang=en&audio=en`;
+    ? `https://vidfast.vc/tv/${id}/${s}/${e}?autoPlay=true&nextButton=true&autoNext=true`
+    : `https://vidfast.vc/movie/${id}?autoPlay=true`;
   return resumeSec > 0 ? `${base}&startAt=${resumeSec}&t=${resumeSec}` : base;
 }
 function getUniqueMovies(items){const seen=new Set();return(items||[]).filter(m=>{if(!m)return false;const key=(m.tmdbId?`${m.mediaType||'movie'}-${m.tmdbId}`:m.id)||(m.title&&m.year?`${m.title.toLowerCase()}-${m.year}`:m.title);if(seen.has(key))return false;seen.add(key);return true})}
@@ -1816,10 +1815,10 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   try{video.pause();video.removeAttribute('src');video.querySelectorAll('track').forEach(t=>t.remove())}catch{}
   try{frame.removeAttribute('src')}catch{}
   video.hidden=Boolean(embedded);
-  video.controls=false;
+  video.controls=!IS_VIDAA_TV;
   frame.hidden=!embedded;
   const nhud=$('#native-player-hud');
-  if(nhud){nhud.hidden=Boolean(embedded);nhud.classList.remove('visible')}
+  if(nhud){nhud.hidden=Boolean(embedded)||!IS_VIDAA_TV;nhud.classList.remove('visible')}
   $('#quality-option').hidden=Boolean(embedded);
   $('#subtitle-option').hidden=Boolean(embedded);
   $('#server-option').hidden=!embedded;
@@ -2107,7 +2106,13 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
     video.volume=1;
     video.play().catch(()=>{});
   }
-  enterFullscreenPlayer(movie);
+  if(IS_VIDAA_TV){
+    enterFullscreenPlayer(movie);
+  }else if(stage){
+    stage.classList.remove('is-fullscreen');
+    document.body.classList.remove('player-fullscreen-mode');
+    stage.scrollIntoView({behavior:'auto',block:'start'});
+  }
 }
 
 let playerHasStarted=false;
@@ -2175,7 +2180,7 @@ function hideNativeHud(){
 }
 
 function showNativeHud(focusTarget,autoHideMs=4000){
-  if(!isNativeVideoActive())return;
+  if(!IS_VIDAA_TV||!isNativeVideoActive())return;
   const nhud=$('#native-player-hud');
   if(!nhud)return;
   nhud.hidden=false;
