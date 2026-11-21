@@ -1154,7 +1154,8 @@ function switchView(viewName){
       const targetMode=viewName==='tv'?'tv':(viewName==='movies'?'movie':'all');
       const needsFetch=currentPage!==1||(homeShelves?.mode!==targetMode);
       if(needsFetch){
-        loadTMDBCatalog('',1).catch(()=>{});
+        showAppSplash(750);
+        loadTMDBCatalog('',1).then(()=>hideAppSplash()).catch(()=>hideAppSplash());
       }else{
         setupHeroCarousel(catalog);
         render();
@@ -3552,20 +3553,60 @@ $('#adblock-setting-toggle')?.addEventListener('change',e=>setAdBlocker(e.target
 $('#server-select')?.addEventListener('change',e=>{currentStreamServer=STREAM_SERVERS[e.target.value]?e.target.value:'vidfast';localStorage.setItem('moviebox-stream-server-v5',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||STREAM_SERVERS[currentStreamServer]}`);playMovie(activeMovie)}});
 $('#player-reload')?.addEventListener('click',()=>{if(activeMovie&&isPlayerActive()){notify('↻ Reloading stream with Ad Shield active…');playMovie(activeMovie)}});
 document.addEventListener('keydown',e=>{if(e.key==='/'&&!e.metaKey&&!e.ctrlKey&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();openSearch()}if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&isPlayerActive()&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();toggleFullscreen()}});
-const splashBootTime=Date.now();
+let splashShownAt=Date.now();
+let splashMinDuration=1800;
+let splashHideTimer=null;
+
+function ensureAppSplashDom(){
+  let splash=$('#app-splash');
+  if(!splash){
+    splash=document.createElement('div');
+    splash.id='app-splash';
+    splash.className='app-splash';
+    splash.innerHTML=`<div class="app-splash-brand"><img class="app-splash-icon" src="/favicon.svg" alt="" width="76" height="76" /><div class="app-splash-logo">MOVIEBOX</div></div><div class="app-splash-spinner" role="progressbar" aria-label="Loading"></div>`;
+    document.body.prepend(splash);
+  }
+  return splash;
+}
+
+function showAppSplash(minMs=1400){
+  const splash=ensureAppSplashDom();
+  clearTimeout(splashHideTimer);
+  splashShownAt=Date.now();
+  splashMinDuration=minMs;
+  splash.classList.remove('is-hidden');
+  splashHideTimer=setTimeout(hideAppSplash,Math.max(minMs+1600,3200));
+}
+
 function hideAppSplash(){
   const splash=$('#app-splash');
   if(!splash||splash.classList.contains('is-hidden'))return;
-  const elapsed=Date.now()-splashBootTime;
-  const minShowMs=1250;
-  if(elapsed<minShowMs){
-    setTimeout(hideAppSplash,minShowMs-elapsed);
+  const elapsed=Date.now()-splashShownAt;
+  if(elapsed<splashMinDuration){
+    clearTimeout(splashHideTimer);
+    splashHideTimer=setTimeout(hideAppSplash,splashMinDuration-elapsed);
     return;
   }
   splash.classList.add('is-hidden');
-  setTimeout(()=>{try{splash.remove()}catch{}},400);
 }
-setTimeout(hideAppSplash,3600);
+showAppSplash(1800);
+
+// Show the MovieBox splash screen whenever the TV WebApp is resumed from the TV Home screen
+let lastHiddenAt=0;
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    lastHiddenAt=Date.now();
+  }else if(lastHiddenAt>0&&Date.now()-lastHiddenAt>800){
+    showAppSplash(1400);
+    setTimeout(hideAppSplash,1450);
+  }
+});
+window.addEventListener('pageshow',e=>{
+  if(e.persisted){
+    showAppSplash(1400);
+    setTimeout(hideAppSplash,1450);
+  }
+});
 
 applyAdBlockerSandbox();
 updateAdBlockUI();
