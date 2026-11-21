@@ -4438,3 +4438,43 @@ footer button.tv-focus {
   outline: none !important;
   box-shadow: none !important;
 }
+
+/* Solid Netflix-Style Caret Dropdowns */
+.nav-browse-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.nav-browse-btn .solid-caret {
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.nav-browse-btn[aria-expanded="true"] .solid-caret {
+  transform: rotate(180deg);
+}
+
+.filter-panel select,
+.player-field select,
+.nf-modal-season-select,
+.detail-season-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: #181818 !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7' fill='%23ffffff'%3E%3Cpolygon points='0,0 11,0 5.5,7'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 11px 7px !important;
+  padding-right: 38px !important;
+  color: #ffffff !important;
+}
+
+.filter-panel select option,
+.player-field select option,
+.nf-modal-season-select option,
+.detail-season-select option {
+  background-color: #181818;
+  color: #ffffff;
+}
