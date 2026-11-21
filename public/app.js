@@ -547,12 +547,11 @@ function renderLandscapeCard(movie,index,rowId,{showProgress=false}={}){
   const pct=showProgress?(progress[movie.id]?.pct||0):0;
   const badge=showProgress?'':getCardBadge(movie,index,rowId);
   const showMono=movie.mediaType==='tv'||index%2===0;
-  const loadAttr=IS_VIDAA_TV?'':'loading="lazy"';
   return `<article class="nf-card ${badge?'has-badge':''}" data-id="${escapeHtml(movie.id)}" tabindex="0" role="button" aria-label="${escapeHtml(movie.title)}">
-    ${img?`<img class="nf-card-img" src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" ${loadAttr} decoding="async" />`:''}
+    ${img?`<img class="nf-card-img" src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" loading="lazy" decoding="async" />`:''}
     <div class="nf-card-scrim"></div>
     ${showMono?`<span class="nf-card-monogram" aria-hidden="true">M</span>`:''}
-    ${logo?`<img class="nf-card-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(movie.title)}" ${loadAttr} decoding="async" onerror="this.remove();this.nextElementSibling&&(this.nextElementSibling.hidden=false)" />`:''}
+    ${logo?`<img class="nf-card-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(movie.title)}" loading="lazy" decoding="async" onerror="this.remove();this.nextElementSibling&&(this.nextElementSibling.hidden=false)" />`:''}
     <h3 class="nf-card-title" ${logo?'hidden':''}>${escapeHtml(movie.title)}</h3>
     ${badge?`<span class="nf-card-badge">${escapeHtml(badge)}</span>`:''}
     ${pct>0?`<div class="nf-card-progress"><div class="nf-card-progress-fill" style="width:${pct}%"></div></div>`:''}
@@ -564,13 +563,12 @@ function renderTop10Card(movie,rank,rowId){
   const img=optimizeTmdbImg(rawImg,'w342');
   const badge=getCardBadge(movie,rank-1,rowId);
   const isTen=rank>=10;
-  const loadAttr=IS_VIDAA_TV?'':'loading="lazy"';
   return `<article class="nf-top10-card">
     <svg class="nf-top10-rank" viewBox="${isTen?'0 0 155 210':'0 0 105 210'}" preserveAspectRatio="none" aria-hidden="true">
       <text x="${isTen?'72':'52'}" y="198" text-anchor="middle" font-size="${isTen?'212':'246'}" letter-spacing="${isTen?'-18':'-4'}">${rank}</text>
     </svg>
     <div class="nf-top10-poster" data-id="${escapeHtml(movie.id)}" tabindex="0" role="button" aria-label="Number ${rank}: ${escapeHtml(movie.title)}">
-      ${img?`<img src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" ${loadAttr} decoding="async" />`:''}
+      ${img?`<img src="${escapeHtml(img)}" alt="${escapeHtml(movie.title)}" loading="lazy" decoding="async" />`:''}
       ${badge?`<span class="nf-card-badge">${escapeHtml(badge)}</span>`:''}
     </div>
   </article>`;
@@ -2941,7 +2939,6 @@ function startHeroCarousel(){stopHeroCarousel();if(heroMovies.length>1)heroTimer
 function stopHeroCarousel(){if(heroTimer){clearInterval(heroTimer);heroTimer=null}}
 function restartHeroCarousel(){stopHeroCarousel();startHeroCarousel()}
 function setupHeroCarousel(items){const uniqueItems=getUniqueMovies(items);const withBackdrop=uniqueItems.filter(m=>m.backdrop);const pool=withBackdrop.length>=3?withBackdrop:uniqueItems;heroMovies=pool.slice(0,5);heroIndex=0;if(heroMovies.length){setHeroMovie(0);startHeroCarousel()}}
-setupHeroCarousel(movies);
 const heroSection=$('#hero-section')||$('.hero');
 heroSection?.addEventListener('mouseenter',stopHeroCarousel);
 heroSection?.addEventListener('mouseleave',startHeroCarousel);
@@ -3556,6 +3553,7 @@ document.addEventListener('keydown',e=>{if(e.key==='/'&&!e.metaKey&&!e.ctrlKey&&
 let splashShownAt=Date.now();
 let splashMinDuration=1800;
 let splashHideTimer=null;
+let windowHasLoaded=document.readyState==='complete';
 
 function ensureAppSplashDom(){
   let splash=$('#app-splash');
@@ -3563,24 +3561,30 @@ function ensureAppSplashDom(){
     splash=document.createElement('div');
     splash.id='app-splash';
     splash.className='app-splash';
-    splash.innerHTML=`<div class="app-splash-brand"><img class="app-splash-icon" src="/favicon.svg" alt="" width="76" height="76" /><div class="app-splash-logo">MOVIEBOX</div></div><div class="app-splash-spinner" role="progressbar" aria-label="Loading"></div>`;
+    splash.innerHTML=`<div class="app-splash-brand"><svg class="app-splash-icon" viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="#0d0d0d"/><rect x="8" y="8" width="496" height="496" rx="104" fill="none" stroke="#ffffff" stroke-opacity="0.08" stroke-width="6"/><path d="M116 396V116h64l76 168 76-168h64v280h-58V222l-62 140h-40l-62-140v174h-58z" fill="#e50914"/></svg><div class="app-splash-logo">MOVIEBOX</div></div><div class="app-splash-spinner" role="progressbar" aria-label="Loading"></div>`;
     document.body.prepend(splash);
   }
   return splash;
 }
 
-function showAppSplash(minMs=1400){
+function showAppSplash(minMs=1600){
   const splash=ensureAppSplashDom();
   clearTimeout(splashHideTimer);
   splashShownAt=Date.now();
   splashMinDuration=minMs;
   splash.classList.remove('is-hidden');
-  splashHideTimer=setTimeout(hideAppSplash,Math.max(minMs+1600,3200));
+  splashHideTimer=setTimeout(hideAppSplash,Math.max(minMs+2000,3800));
 }
 
 function hideAppSplash(){
   const splash=$('#app-splash');
   if(!splash||splash.classList.contains('is-hidden'))return;
+  // Wait until window.onload has fired (so VIDAA OS removes its native yellow spinner first!)
+  if(!windowHasLoaded){
+    clearTimeout(splashHideTimer);
+    splashHideTimer=setTimeout(hideAppSplash,250);
+    return;
+  }
   const elapsed=Date.now()-splashShownAt;
   if(elapsed<splashMinDuration){
     clearTimeout(splashHideTimer);
@@ -3589,28 +3593,44 @@ function hideAppSplash(){
   }
   splash.classList.add('is-hidden');
 }
+
 showAppSplash(1800);
+
+// Defer catalog & image rendering until right after window.onload so VIDAA OS dismisses
+// its native yellow spinner in <50ms and immediately reveals MovieBox's #app-splash!
+function bootCatalogAfterLoad(){
+  windowHasLoaded=true;
+  // Reset splash timer AT the moment window.onload fires so the user sees the full 1.6s splash!
+  splashShownAt=Date.now();
+  splashMinDuration=1600;
+  setupHeroCarousel(movies);
+  applyAdBlockerSandbox();
+  updateAdBlockUI();
+  refreshFilterOptions();
+  render();
+  handleRoute();
+  loadTMDBCatalog().then(()=>{hideAppSplash();if(window.location.hash.startsWith('#title/')&&currentView!=='detail')handleRoute()}).catch(err=>{hideAppSplash();console.warn('TMDB catalog unavailable',err);notify('TMDB unavailable · Loading free classic films');loadInternetArchive()});
+}
+
+if(document.readyState==='complete'){
+  bootCatalogAfterLoad();
+}else{
+  window.addEventListener('load',bootCatalogAfterLoad,{once:true});
+}
 
 // Show the MovieBox splash screen whenever the TV WebApp is resumed from the TV Home screen
 let lastHiddenAt=0;
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){
     lastHiddenAt=Date.now();
-  }else if(lastHiddenAt>0&&Date.now()-lastHiddenAt>800){
-    showAppSplash(1400);
-    setTimeout(hideAppSplash,1450);
+  }else if(lastHiddenAt>0&&Date.now()-lastHiddenAt>600){
+    showAppSplash(1500);
+    setTimeout(hideAppSplash,1550);
   }
 });
 window.addEventListener('pageshow',e=>{
   if(e.persisted){
-    showAppSplash(1400);
-    setTimeout(hideAppSplash,1450);
+    showAppSplash(1500);
+    setTimeout(hideAppSplash,1550);
   }
 });
-
-applyAdBlockerSandbox();
-updateAdBlockUI();
-refreshFilterOptions();
-render();
-handleRoute();
-loadTMDBCatalog().then(()=>{hideAppSplash();if(window.location.hash.startsWith('#title/')&&currentView!=='detail')handleRoute()}).catch(err=>{hideAppSplash();console.warn('TMDB catalog unavailable',err);notify('TMDB unavailable · Loading free classic films');loadInternetArchive()});
