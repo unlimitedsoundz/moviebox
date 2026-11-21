@@ -650,12 +650,12 @@ function buildHomeRows(filtered,watching){
   const crimeMystery=(hs.crimeMystery?.length?hs.crimeMystery:fallbackMovies).slice(0,18);
 
   const rows=[
-    ...(newlyAddedFilms.length?[{id:'newly-added',title:'Newly Added Films',items:newlyAddedFilms,type:'landscape'}]:[]),
     {id:'top-picks',title:"Today's Top Picks for You",items:topPicks,type:'landscape'},
     ...(savedList.length?[{id:'my-list',title:'My List',items:savedList,type:'landscape'}]:[]),
     ...(top10Series.length?[{id:'top10-series',title:'Top 10 Series Today',items:top10Series,type:'top10'}]:[]),
-    ...(bingeworthyTv.length?[{id:'bingeworthy-tv',title:'Bingeworthy TV Thrillers',items:bingeworthyTv,type:'landscape'}]:[]),
+    ...(newlyAddedFilms.length?[{id:'newly-added',title:'Newly Added Films',items:newlyAddedFilms,type:'landscape'}]:[]),
     ...(top10Films.length?[{id:'top10-films',title:'Top 10 Films Today',items:top10Films,type:'top10'}]:[]),
+    ...(bingeworthyTv.length?[{id:'bingeworthy-tv',title:'Bingeworthy TV Thrillers',items:bingeworthyTv,type:'landscape'}]:[]),
     ...(watching.length?[{id:'continue-watching',title:'Continue Watching',items:watching,type:'landscape',showProgress:true}]:[]),
     ...(adrenalineMovies.length?[{id:'adrenaline-movies',title:'Adrenaline Rush Movies',items:adrenalineMovies,type:'landscape'}]:[]),
     ...(ominousDrama.length?[{id:'ominous-drama',title:'Ominous Drama Series',items:ominousDrama,type:'landscape'}]:[]),

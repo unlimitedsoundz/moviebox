@@ -1080,8 +1080,8 @@ body.vidaa-tv .nf-top10-poster.tv-focus {
 
 .nf-top10-card {
   position: relative;
-  flex: 0 0 calc((100% - 62px) / 4.35);
-  min-width: 255px;
+  flex: 0 0 calc((100% - 76px) / 4.85);
+  min-width: 220px;
   display: flex;
   align-items: stretch;
   pointer-events: none;
@@ -1114,7 +1114,7 @@ body.vidaa-tv .nf-top10-poster.tv-focus {
 .nf-top10-poster {
   position: relative;
   width: 64%;
-  aspect-ratio: 9 / 16;
+  aspect-ratio: 2 / 3;
   border-radius: 6px;
   overflow: hidden;
   background: #1f1f1f;

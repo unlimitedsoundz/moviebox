@@ -137,58 +137,44 @@ function interleaveUnique(movieList, tvList) {
 
 async function fetchRecent24h(apiKey, genreNames, region = 'US') {
   const now = new Date();
-  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const todayStr = now.toISOString().slice(0, 10);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const sinceStr = thirtyDaysAgo.toISOString().slice(0, 10);
 
-  const [primaryMovies, regionalMovies, newTv, airingTodayTv, airDateTv] = await Promise.all([
+  const [primaryMovies, nowPlayingMovies, newTv, onAirTv] = await Promise.all([
     tmdb(apiKey, '/discover/movie', {
-      'primary_release_date.gte': yesterdayStr,
+      'primary_release_date.gte': sinceStr,
       'primary_release_date.lte': todayStr,
+      'vote_count.gte': '20',
       sort_by: 'popularity.desc',
       include_adult: 'false',
       page: '1'
     }).catch(() => ({ results: [] })),
-    tmdb(apiKey, '/discover/movie', {
-      'release_date.gte': yesterdayStr,
-      'release_date.lte': todayStr,
-      region,
-      sort_by: 'popularity.desc',
-      include_adult: 'false',
-      page: '1'
-    }).catch(() => ({ results: [] })),
+    tmdb(apiKey, '/movie/now_playing', { page: '1', region }).catch(() => ({ results: [] })),
     tmdb(apiKey, '/discover/tv', {
-      'first_air_date.gte': yesterdayStr,
+      'first_air_date.gte': sinceStr,
       'first_air_date.lte': todayStr,
+      'vote_count.gte': '15',
       sort_by: 'popularity.desc',
       include_adult: 'false',
       page: '1'
     }).catch(() => ({ results: [] })),
-    tmdb(apiKey, '/tv/airing_today', { page: '1' }).catch(() => ({ results: [] })),
-    tmdb(apiKey, '/discover/tv', {
-      'air_date.gte': yesterdayStr,
-      'air_date.lte': todayStr,
-      sort_by: 'popularity.desc',
-      include_adult: 'false',
-      page: '1'
-    }).catch(() => ({ results: [] }))
+    tmdb(apiKey, '/tv/on_the_air', { page: '1' }).catch(() => ({ results: [] }))
   ]);
 
-  const withPosterFirst = list => [
-    ...list.filter(item => item && item.poster_path),
-    ...list.filter(item => item && !item.poster_path)
-  ];
-
-  const movieList = withPosterFirst([
+  const movieList = [
     ...(primaryMovies.results || []),
-    ...(regionalMovies.results || [])
-  ]).map(m => ({ ...m, _mediaType: 'movie' }));
+    ...(nowPlayingMovies.results || [])
+  ]
+    .filter(item => item && item.poster_path && item.backdrop_path && (item.vote_count || 0) >= 15)
+    .map(m => ({ ...m, _mediaType: 'movie' }));
 
-  const tvList = withPosterFirst([
+  const tvList = [
     ...(newTv.results || []),
-    ...(airingTodayTv.results || []),
-    ...(airDateTv.results || [])
-  ]).map(m => ({ ...m, _mediaType: 'tv' }));
+    ...(onAirTv.results || [])
+  ]
+    .filter(item => item && item.poster_path && item.backdrop_path && (item.vote_count || 0) >= 15)
+    .map(m => ({ ...m, _mediaType: 'tv' }));
 
   return interleaveUnique(movieList, tvList)
     .slice(0, 20)
@@ -197,45 +183,41 @@ async function fetchRecent24h(apiKey, genreNames, region = 'US') {
 
 async function fetchNewlyAddedFilms(apiKey, genreNames, region = 'US') {
   const now = new Date();
-  const sixtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
   const todayStr = now.toISOString().slice(0, 10);
-  const sinceStr = sixtyDaysAgo.toISOString().slice(0, 10);
+  const sinceStr = ninetyDaysAgo.toISOString().slice(0, 10);
 
-  const [newestDigital, newestPrimary, nowPlaying] = await Promise.all([
+  const [nowPlaying, popularRecent, digitalRecent] = await Promise.all([
+    tmdb(apiKey, '/movie/now_playing', { page: '1', region }).catch(() => ({ results: [] })),
+    tmdb(apiKey, '/discover/movie', {
+      'primary_release_date.gte': sinceStr,
+      'primary_release_date.lte': todayStr,
+      'vote_count.gte': '35',
+      sort_by: 'popularity.desc',
+      include_adult: 'false',
+      page: '1'
+    }).catch(() => ({ results: [] })),
     tmdb(apiKey, '/discover/movie', {
       'primary_release_date.gte': sinceStr,
       'primary_release_date.lte': todayStr,
       with_release_type: '4|3|2',
-      'vote_count.gte': '3',
-      sort_by: 'primary_release_date.desc',
+      'vote_count.gte': '25',
+      sort_by: 'popularity.desc',
       include_adult: 'false',
       page: '1'
-    }).catch(() => ({ results: [] })),
-    tmdb(apiKey, '/discover/movie', {
-      'release_date.gte': sinceStr,
-      'release_date.lte': todayStr,
-      region,
-      'vote_count.gte': '5',
-      sort_by: 'release_date.desc',
-      include_adult: 'false',
-      page: '1'
-    }).catch(() => ({ results: [] })),
-    tmdb(apiKey, '/movie/now_playing', { page: '1', region }).catch(() => ({ results: [] }))
+    }).catch(() => ({ results: [] }))
   ]);
 
   const raw = [
-    ...(newestDigital.results || []),
-    ...(newestPrimary.results || []),
-    ...(nowPlaying.results || [])
-  ];
-  const withArtFirst = [
-    ...raw.filter(item => item && item.backdrop_path && item.poster_path),
-    ...raw.filter(item => item && (item.backdrop_path || item.poster_path))
-  ];
+    ...(nowPlaying.results || []),
+    ...(popularRecent.results || []),
+    ...(digitalRecent.results || [])
+  ].filter(item => item && item.backdrop_path && item.poster_path && (item.vote_count || 0) >= 20);
+
   const seen = new Set();
   const out = [];
-  for (const item of withArtFirst) {
-    if (!item || !item.id || seen.has(item.id)) continue;
+  for (const item of raw) {
+    if (seen.has(item.id)) continue;
     seen.add(item.id);
     out.push({ ...mapTmdbItem(item, 'movie', genreNames), isRecent24h: true });
     if (out.length >= 18) break;
@@ -412,11 +394,14 @@ module.exports = async function handler(req, res) {
       let totalResults = 0;
       let currentPageNum = page;
 
-      const mapUnique = (list, type, limit = 18) => {
+      const mapUnique = (list, type, limit = 18, minVotes = 15) => {
         const seen = new Set();
         const out = [];
-        for (const item of list || []) {
-          if (!item || !item.id) continue;
+        const filtered = (list || []).filter(item =>
+          item && item.id && item.poster_path && item.backdrop_path && (item.vote_count || 0) >= minVotes
+        );
+        const pool = filtered.length >= Math.min(6, limit) ? filtered : (list || []).filter(item => item && item.id && (item.poster_path || item.backdrop_path) && (item.vote_count || 0) >= 5);
+        for (const item of pool) {
           const t = item._mediaType || type;
           const k = `${t}-${item.id}`;
           if (seen.has(k)) continue;
@@ -455,8 +440,12 @@ module.exports = async function handler(req, res) {
           page === 1 ? tmdb(apiKey, '/discover/movie', { with_genres: '53,80,9648', sort_by: 'popularity.desc', include_adult: 'false', page: '1' }).catch(() => ({ results: [] })) : Promise.resolve({ results: [] }),
           page === 1 ? fetchNewlyAddedFilms(apiKey, genreNames, region).catch(() => []) : Promise.resolve([])
         ]);
-        const movieList = [...(trendMovies.results || []), ...(nowPlaying.results || [])].map(m => ({ ...m, _mediaType: 'movie' }));
-        const tvList = [...(trendTv.results || []), ...(onAir.results || [])].map(m => ({ ...m, _mediaType: 'tv' }));
+        const movieList = [...(trendMovies.results || []), ...(nowPlaying.results || [])]
+          .filter(m => m && m.poster_path && m.backdrop_path && (m.vote_count || 0) >= 15)
+          .map(m => ({ ...m, _mediaType: 'movie' }));
+        const tvList = [...(trendTv.results || []), ...(onAir.results || [])]
+          .filter(m => m && m.poster_path && m.backdrop_path && (m.vote_count || 0) >= 15)
+          .map(m => ({ ...m, _mediaType: 'tv' }));
         sourceResults = interleaveUnique(movieList, tvList);
         recentResults = recent24h;
         totalPages = Math.max(trendMovies.total_pages || 1, trendTv.total_pages || 1);
