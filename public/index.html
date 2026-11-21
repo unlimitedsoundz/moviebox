@@ -27,7 +27,7 @@
     .app-splash-spinner{width:54px;height:54px;border-radius:50%;border:4px solid rgba(229,9,20,.18);border-top-color:#e50914;animation:mbSplashSpin .78s linear infinite}
     @keyframes mbSplashSpin{to{transform:rotate(360deg)}}
   </style>
-  <link rel="stylesheet" href="styles.css?v=20261121d" />
+  <link rel="stylesheet" href="styles.css?v=20261121e" />
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1/dist/hls.min.js" defer></script>
 </head>
 <body>
@@ -140,6 +140,10 @@
             <button type="button" class="close-button player-floating-close" id="player-close" aria-label="Close player" title="Close player"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
             <video id="video-player" playsinline preload="metadata" crossorigin="anonymous"></video>
             <iframe id="stream-player" tabindex="0" scrolling="no" title="MovieBox video player" allow="autoplay; fullscreen; picture-in-picture; encrypted-media; accelerometer; gyroscope" allowfullscreen referrerpolicy="origin"></iframe>
+            <div class="player-loading" id="player-loading" hidden aria-hidden="true">
+              <div class="app-splash-logo">MOVIEBOX</div>
+              <div class="app-splash-spinner"></div>
+            </div>
             <div class="player-scroll-edge left" aria-hidden="true"></div>
             <div class="player-scroll-edge right" aria-hidden="true"></div>
             <div class="native-player-hud" id="native-player-hud" hidden aria-label="Native video player controls">
@@ -299,6 +303,6 @@
   <div class="nf-hover-card" id="hover-card" hidden aria-hidden="true"></div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <dialog id="server-dialog" class="server-dialog"><div class="settings-head"><div><p class="kicker">PREFERENCES &amp; LIBRARY</p><h2>Settings &amp; Library</h2></div><button class="close-button" data-close="server-dialog" aria-label="Close settings"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button></div><div class="settings-adblock-card"><div class="adblock-card-header"><span class="adblock-card-icon">🛡️</span><div><h3>Inbuilt Ad &amp; Redirect Blocker</h3><p>Blocks malicious redirects, popups, and tab hijacking when streaming movies and TV shows.</p></div></div><div class="adblock-card-controls"><label class="toggle-control"><input type="checkbox" id="adblock-setting-toggle" checked /><span class="toggle-slider"></span><span class="toggle-label" id="adblock-setting-label">Protection Active</span></label><span class="adblock-status-pill" id="adblock-stats-summary">Shield active</span></div></div><p class="settings-copy">Connect a movie server or catalog API to bring your own authorized library into MovieBox.</p><form id="server-form"><label>Catalog API URL<input id="server-url" type="url" placeholder="https://your-server.example/api/movies" /></label><label>Access token <span class="optional">optional</span><input id="server-token" type="password" placeholder="Your server token" autocomplete="off" /></label><button type="submit" class="button button-primary settings-submit">Save connection</button></form><div class="api-hint"><strong>Expected catalog format</strong><code>[{ "id":"1", "title":"...", "year":2025, "genre":"Drama", "poster":"https://…", "description":"…", "rating":8.1, "duration":"1h 42m", "videoUrl":"https://…", "subtitlesUrl":"https://…" }]</code><span>Use a server that permits browser playback (CORS) and provides media you’re authorized to watch.</span></div></dialog>
-  <script src="app.js?v=20261121d"></script>
+  <script src="app.js?v=20261121e"></script>
 </body>
 </html>

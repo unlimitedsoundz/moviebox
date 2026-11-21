@@ -945,9 +945,18 @@ body {
 .detail-back-btn.tv-focus,
 .player-action-button:focus-visible,
 .player-action-button.tv-focus {
-  outline: 3px solid #ffffff !important;
-  outline-offset: 3px;
-  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.16);
+  outline: 2px solid #ffffff !important;
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.nf-top10-poster:focus-visible,
+.nf-top10-poster.tv-focus,
+body.vidaa-tv .nf-top10-poster:focus-visible,
+body.vidaa-tv .nf-top10-poster.tv-focus {
+  outline: 1.5px solid rgba(255, 255, 255, 0.92) !important;
+  outline-offset: 0px !important;
+  box-shadow: none !important;
 }
 
 .nf-card.tv-focus,
@@ -2859,6 +2868,24 @@ footer small {
   overscroll-behavior: auto;
 }
 
+.player-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 14;
+  background: #141414;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+
+.player-loading[hidden] {
+  display: none !important;
+}
+
 .player-scroll-edge {
   position: absolute;
   top: 0;
@@ -4088,15 +4115,13 @@ body.vidaa-tv .nf-inline-preview {
 
 body.vidaa-tv .nf-card:focus-visible,
 body.vidaa-tv .nf-card.tv-focus,
-body.vidaa-tv .nf-top10-poster:focus-visible,
-body.vidaa-tv .nf-top10-poster.tv-focus,
 body.vidaa-tv .nav-link.tv-focus,
 body.vidaa-tv .button.tv-focus,
 body.vidaa-tv .player-action-button.tv-focus,
 body.vidaa-tv .player-field select:focus-visible {
   box-shadow: none;
-  outline: 4px solid #ffffff !important;
-  outline-offset: 2px;
+  outline: 2.5px solid #ffffff !important;
+  outline-offset: 1px;
 }
 
 /* Native TV App Mode: D-Pad scrolls rows directly, hide mouse-only arrows & enlarge player buttons */

@@ -1834,11 +1834,16 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   pendingResumeTarget=resumeTime>5?{movieId:movie.id,time:resumeTime,startedAt:Date.now(),seekAttempts:0}:null;
   populatePauseOverlay(movie);
   hidePauseOverlay();
+  const pLoad=$('#player-loading');
+  if(pLoad)pLoad.hidden=false;
+  const hidePlayerLoading=()=>{if(pLoad)pLoad.hidden=true};
+  setTimeout(hidePlayerLoading,2200);
   if(embedded){
     applyAdBlockerSandbox();
     frame.setAttribute('tabindex','0');
     frame.referrerPolicy=currentStreamServer==='vidlink'?'origin':'no-referrer';
     frame.onload=()=>{
+      hidePlayerLoading();
       if(isPlayerActive()&&!frame.hidden){
         unmuteIframePlayer(frame);
         try{frame.focus({preventScroll:true})}catch{}
@@ -2069,7 +2074,8 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
     };
 
     video.onpause=()=>{syncNativeHudState();if(isNativeVideoActive())showNativeHud($('#nhud-play'),0)};
-    video.onplay=()=>{playerHasStarted=true;syncNativeHudState();showNativeHud(null,3500)};
+    video.onplay=()=>{hidePlayerLoading();playerHasStarted=true;syncNativeHudState();showNativeHud(null,3500)};
+    video.oncanplay=()=>hidePlayerLoading();
     video.onvolumechange=()=>syncNativeHudState();
     video.onended=()=>{playerHasStarted=false;syncNativeHudState();showNativeHud($('#nhud-play'),0)};
     video.ontimeupdate=()=>{
@@ -3546,13 +3552,20 @@ $('#adblock-setting-toggle')?.addEventListener('change',e=>setAdBlocker(e.target
 $('#server-select')?.addEventListener('change',e=>{currentStreamServer=STREAM_SERVERS[e.target.value]?e.target.value:'vidfast';localStorage.setItem('moviebox-stream-server-v5',currentStreamServer);if(activeMovie&&activeMovie.source==='TMDB'&&isPlayerActive()){notify(`Switched to ${e.target.selectedOptions[0]?.textContent||STREAM_SERVERS[currentStreamServer]}`);playMovie(activeMovie)}});
 $('#player-reload')?.addEventListener('click',()=>{if(activeMovie&&isPlayerActive()){notify('↻ Reloading stream with Ad Shield active…');playMovie(activeMovie)}});
 document.addEventListener('keydown',e=>{if(e.key==='/'&&!e.metaKey&&!e.ctrlKey&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();openSearch()}if((e.key==='f'||e.key==='F')&&!e.metaKey&&!e.ctrlKey&&isPlayerActive()&&document.activeElement?.tagName!=='INPUT'){e.preventDefault();toggleFullscreen()}});
+const splashBootTime=Date.now();
 function hideAppSplash(){
   const splash=$('#app-splash');
   if(!splash||splash.classList.contains('is-hidden'))return;
+  const elapsed=Date.now()-splashBootTime;
+  const minShowMs=1250;
+  if(elapsed<minShowMs){
+    setTimeout(hideAppSplash,minShowMs-elapsed);
+    return;
+  }
   splash.classList.add('is-hidden');
   setTimeout(()=>{try{splash.remove()}catch{}},400);
 }
-setTimeout(hideAppSplash,3200);
+setTimeout(hideAppSplash,3600);
 
 applyAdBlockerSandbox();
 updateAdBlockUI();
