@@ -3561,7 +3561,7 @@ function ensureAppSplashDom(){
     splash=document.createElement('div');
     splash.id='app-splash';
     splash.className='app-splash';
-    splash.innerHTML=`<div class="app-splash-brand"><svg class="app-splash-icon" viewBox="0 0 512 512" aria-hidden="true"><path d="M96 416V96h72l88 192 88-192h72v320h-66V214l-70 158h-48l-70-158v202H96z" fill="#e50914"/></svg><div class="app-splash-logo">MOVIEBOX</div></div><div class="app-splash-spinner" role="progressbar" aria-label="Loading"></div>`;
+    splash.innerHTML=`<div class="app-splash-logo">MOVIEBOX</div><div class="app-splash-spinner" role="progressbar" aria-label="Loading"></div>`;
     document.body.prepend(splash);
   }
   return splash;
