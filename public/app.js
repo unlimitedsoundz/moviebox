@@ -1815,10 +1815,10 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   try{video.pause();video.removeAttribute('src');video.querySelectorAll('track').forEach(t=>t.remove())}catch{}
   try{frame.removeAttribute('src')}catch{}
   video.hidden=Boolean(embedded);
-  video.controls=!IS_VIDAA_TV;
+  video.controls=true;
   frame.hidden=!embedded;
   const nhud=$('#native-player-hud');
-  if(nhud){nhud.hidden=Boolean(embedded)||!IS_VIDAA_TV;nhud.classList.remove('visible')}
+  if(nhud){nhud.hidden=true;nhud.classList.remove('visible')}
   $('#quality-option').hidden=Boolean(embedded);
   $('#subtitle-option').hidden=Boolean(embedded);
   $('#server-option').hidden=!embedded;
@@ -1836,16 +1836,12 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   hidePauseOverlay();
   if(embedded){
     applyAdBlockerSandbox();
-    frame.setAttribute('tabindex','-1');
+    frame.setAttribute('tabindex','0');
     frame.referrerPolicy=currentStreamServer==='vidlink'?'origin':'no-referrer';
     frame.onload=()=>{
       if(isPlayerActive()&&!frame.hidden){
         unmuteIframePlayer(frame);
-        const fsBack=$('#fs-back-btn');
-        if(fsBack&&isFullscreenPlayerActive()){
-          try{fsBack.focus({preventScroll:true})}catch{}
-          fsBack.classList.add('tv-focus');
-        }
+        try{frame.focus({preventScroll:true})}catch{}
       }
     };
     const type=isTV?'tv':'movie';
@@ -2100,19 +2096,21 @@ function playMovie(movie,{preserveEpisode=false,resetTime=false,season,episode,r
   const stage=$('#player-stage');
   if(stage){
     stage.hidden=false;
+    stage.classList.remove('is-fullscreen');
+    document.body.classList.remove('player-fullscreen-mode');
+    stage.scrollIntoView({behavior:'auto',block:'start'});
   }
   if(!embedded){
     video.muted=false;
     video.volume=1;
     video.play().catch(()=>{});
   }
-  if(IS_VIDAA_TV){
-    enterFullscreenPlayer(movie);
-  }else if(stage){
-    stage.classList.remove('is-fullscreen');
-    document.body.classList.remove('player-fullscreen-mode');
-    stage.scrollIntoView({behavior:'auto',block:'start'});
-  }
+  setTimeout(()=>{
+    const targetPlayer=embedded?frame:video;
+    if(targetPlayer&&!targetPlayer.hidden){
+      try{targetPlayer.focus({preventScroll:true})}catch{}
+    }
+  },160);
 }
 
 let playerHasStarted=false;
